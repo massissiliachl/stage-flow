@@ -1397,7 +1397,7 @@ function writeEntry(name, initCall) {
   window.logout = function(){ window.location.href = 'index.html'; };
   if (location.protocol === 'file:') {
     var page = (location.pathname.split(/[/\\\\]/).pop() || 'index.html');
-    window.location.replace('http://localhost:3456/' + page + location.search);
+    window.location.replace('https://stageflow-9775.onrender.com/' + page + location.search);
     return;
   }
   ${initCall}

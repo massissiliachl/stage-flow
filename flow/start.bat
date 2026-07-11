@@ -1,8 +1,8 @@
 @echo off
 cd /d "%~dp0"
 echo.
-echo  StageFlow — Front (http://localhost:3456)
+echo  StageFlow — Front (https://stageflow-9775.onrender.com)
 echo  Ne pas double-cliquer sur les fichiers .html
 echo.
-start "" "http://localhost:3456/entreprise.html"
+start "" "https://stageflow-9775.onrender.com/entreprise.html"
 npm run dev
