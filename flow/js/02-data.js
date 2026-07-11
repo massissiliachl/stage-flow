@@ -7,7 +7,7 @@ const state = { role:null, user:null, currentPage:null, signatures:{}, currentCo
 // Permet de gérer plusieurs comptes créés dynamiquement
 const registeredAccounts = { etudiant:{}, entreprise:{} };
 
-const API_BASE = 'https://stageflow-9775.onrender.com';
+const API_BASE = 'https://stage-flow-6rl5.onrender.com';
 
 async function apiJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
