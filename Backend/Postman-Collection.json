@@ -1,0 +1,377 @@
+{
+  "info": {
+    "name": "StageFlow - Architecture Multi-Facultés",
+    "description": "Collection d'endpoints pour tester la hiérarchie Université → Faculté → Département",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔐 AUTH",
+      "item": [
+        {
+          "name": "Login - Admin Université",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@univ-bejaia.dz\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Admin Faculté",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin.fshs@univ-bejaia.dz\",\n  \"password\": \"faculty123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Admin Département",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin.sic@univ-bejaia.dz\",\n  \"password\": \"dept123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login - Étudiant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"n.djatout@univ-bejaia.dz\",\n  \"password\": \"student123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 UTILISATEUR",
+      "item": [
+        {
+          "name": "Voir ma hiérarchie",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/me/hierarchy",
+              "host": ["{{base_url}}"],
+              "path": ["api", "me", "hierarchy"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏛️ FACULTÉS",
+      "item": [
+        {
+          "name": "Lister les facultés",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faculties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties"]
+            }
+          }
+        },
+        {
+          "name": "Détails d'une faculté",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Créer une faculté (Admin Univ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Faculté de Médecine\",\n  \"code\": \"FMEDECINE\",\n  \"dean\": {\n    \"name\": \"Dr. Yacine Bouaroua\",\n    \"email\": \"dean.med@univ-bejaia.dz\",\n    \"phone\": \"+213 34 XX XX XX\"\n  },\n  \"description\": \"Nouvelle faculté dédiée à la médecine\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/faculties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties"]
+            }
+          }
+        },
+        {
+          "name": "Modifier une faculté",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Faculté des Sciences Humaines (Mise à jour)\",\n  \"description\": \"Mise à jour de la description\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 DÉPARTEMENTS",
+      "item": [
+        {
+          "name": "Lister les departments d'une faculté",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}/departments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}", "departments"]
+            }
+          }
+        },
+        {
+          "name": "Détails d'un département",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}/departments/{{department_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}", "departments", "{{department_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Créer un département (Admin Faculté)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Département Psychologie\",\n  \"code\": \"PSYCH\",\n  \"headOfDepartment\": {\n    \"name\": \"Dr. Leila Messaoudi\",\n    \"email\": \"head.psych@univ-bejaia.dz\",\n    \"phone\": \"+213 34 XX XX XX\"\n  },\n  \"stagesCoordinator\": {\n    \"name\": \"Mme. Sara Bennani\",\n    \"email\": \"coord.psych@univ-bejaia.dz\",\n    \"phone\": \"+213 34 YY YY YY\"\n  },\n  \"description\": \"Département dédié à la psychologie\",\n  \"maxStudents\": 120\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}/departments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}", "departments"]
+            }
+          }
+        },
+        {
+          "name": "Modifier un département",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxStudents\": 150,\n  \"description\": \"Mise à jour du nombre d'étudiants maximum\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/faculties/{{faculty_id}}/departments/{{department_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "{{faculty_id}}", "departments", "{{department_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 TESTS DE SÉCURITÉ",
+      "item": [
+        {
+          "name": "❌ Admin Faculté crée faculté (doit échouer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_faculty}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Faculté Pirate\",\n  \"code\": \"PIRATE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/faculties",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties"]
+            }
+          }
+        },
+        {
+          "name": "❌ Admin Dept accède autre faculté (doit échouer)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_dept}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faculties/OTHER_FACULTY_ID/departments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "faculties", "OTHER_FACULTY_ID", "departments"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_faculty",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_dept",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "faculty_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "department_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

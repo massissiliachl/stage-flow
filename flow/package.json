@@ -1,0 +1,7 @@
+{
+  "name": "stageflow-flow",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes http-server . -p 3456 -c-1 --cors"
+  }
+}

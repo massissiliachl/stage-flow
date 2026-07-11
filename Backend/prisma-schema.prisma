@@ -1,0 +1,175 @@
+// MIGRATION PRISMA (Alternative SQL)
+// Créer ce fichier si vous utilisez Prisma + PostgreSQL au lieu de Mongoose
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODÈLE UNIVERSITÉ (Racine)
+// ═══════════════════════════════════════════════════════════════════════
+model University {
+  id                String        @id @default(cuid())
+  name              String        @unique
+  acronym           String
+  wilaya            String
+  email             String        @unique
+  phone             String?
+  address           String?
+  website           String?
+  logo              String?
+  
+  subscriptionPlan  String        @default("Gratuit") // Gratuit, Basique, Standard, Premium
+  subscriptionExpiry DateTime?
+  isActive          Boolean       @default(true)
+
+  // Relations
+  faculties         Faculty[]
+  departments       Department[]
+  users             User[]
+  conventions       Convention[]
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([name])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODÈLE FACULTÉ (Niveau intermédiaire)
+// ═══════════════════════════════════════════════════════════════════════
+model Faculty {
+  id                String        @id @default(cuid())
+  name              String
+  code              String
+  
+  universityId      String
+  university        University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  dean              Json? // { name, email, phone }
+  description       String?
+  isActive          Boolean       @default(true)
+
+  // Relations
+  departments       Department[]
+  users             User[]
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([name, universityId])
+  @@index([universityId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODÈLE DÉPARTEMENT (Niveau opérationnel) - MODIFIÉ
+// ═══════════════════════════════════════════════════════════════════════
+model Department {
+  id                     String        @id @default(cuid())
+  name                   String
+  code                   String
+  
+  universityId           String
+  university             University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  // NOUVEAU: Clé étrangère vers Faculty
+  facultyId              String
+  faculty                Faculty       @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  headOfDepartment       Json? // { name, email, phone }
+  stagesCoordinator      Json? // { name, email, phone }
+  description            String?
+  
+  maxStudents            Int           @default(100)
+  currentStudents        Int           @default(0)
+  isActive               Boolean       @default(true)
+
+  // Relations
+  users                  User[]
+  conventions            Convention[]
+
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@unique([code, facultyId])
+  @@index([facultyId])
+  @@index([universityId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODÈLE UTILISATEUR (Intégration hiérarchie)
+// ═══════════════════════════════════════════════════════════════════════
+model User {
+  id                String        @id @default(cuid())
+  email             String        @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  phone             String?
+
+  role              String        // admin_universite, admin_faculte, admin_departement, responsable_stages, enseignant, etudiant, entreprise
+
+  // Hiérarchie
+  universityId      String
+  university        University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  facultyId         String?       // Requis pour admin_faculte
+  faculty           Faculty?      @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  
+  departmentId      String?       // Requis pour admin_departement, responsable_stages, enseignant
+  department        Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Données spécifiques
+  studentData       Json? // { matricule, specialty, promotion }
+  companyData       Json? // { company, rc, nif, sector, wilaya, logo }
+
+  isActive          Boolean       @default(true)
+  lastLogin         DateTime?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([universityId])
+  @@index([facultyId])
+  @@index([departmentId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODÈLE CONVENTION (Exemple: filtrage par hiérarchie)
+// ═══════════════════════════════════════════════════════════════════════
+model Convention {
+  id                String        @id @default(cuid())
+  reference         String        @unique
+  
+  // Hiérarchie
+  universityId      String
+  university        University    @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  departmentId      String
+  department        Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // Données
+  studentName       String
+  studentMatricule  String
+  companyName       String
+  theme             String
+  period            String
+  
+  status            String        @default("pending") // pending, active, signed, archived
+  signedStudent     Boolean       @default(false)
+  signedCompany     Boolean       @default(false)
+  signedUniversity  Boolean       @default(false)
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([universityId])
+  @@index([departmentId])
+}
