@@ -22,6 +22,8 @@ function getCorsOptions() {
   const origins = [
     'http://localhost:3456',
     'http://127.0.0.1:3456',
+    'https://stage-flow-6rl5.onrender.com',
+    'https://stageflow-9775.onrender.com',
     ...extra,
   ];
 
