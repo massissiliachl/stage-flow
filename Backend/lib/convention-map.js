@@ -39,6 +39,8 @@ function mapConventionRow(row) {
     studentSpecialty: st.specialty || '',
     studentUniversity: st.university || '',
     studentBinome: st.binome || null,
+    studentGroupType: st.groupType || (st.binome ? (Array.isArray(st.groupMembers) && st.groupMembers.length > 1 ? 'quadrinome' : 'binome') : 'solo'),
+    studentGroupMembers: st.groupMembers || (st.binome && st.binome.name ? [st.binome] : (st.binome && st.binome.members ? st.binome.members : [])),
     studentPromotion: st.promotion || '',
     entrepriseNif: ent.nif || '',
     entrepriseNrc: ent.nrc || '',
@@ -52,6 +54,9 @@ function mapConventionRow(row) {
     entrepriseIdentifiant: ent.identifiant || '',
     parties,
     signatures: sig,
+    documentHash: row.document_hash || sig.documentHash || null,
+    finalIntegrityHash: row.final_integrity_hash || null,
+    hashAlgorithm: row.hash_algorithm || 'SHA-256',
     fromDb: true,
   };
 }
@@ -86,6 +91,19 @@ async function buildPartiesSnapshot(client, demand, encadrantEnt) {
 
   const applyStudentRow = (s) => {
     const sd = s.student_data && typeof s.student_data === 'object' ? s.student_data : {};
+    const binomeRaw = s.binome && typeof s.binome === 'object' ? s.binome : null;
+    let groupType = sd.groupType || 'solo';
+    let groupMembers = [];
+    if (binomeRaw && binomeRaw.groupType && Array.isArray(binomeRaw.members)) {
+      groupType = binomeRaw.groupType;
+      groupMembers = binomeRaw.members;
+    } else if (binomeRaw && binomeRaw.name) {
+      groupType = 'binome';
+      groupMembers = [binomeRaw];
+    } else if (s.binome && s.binome.name) {
+      groupType = 'binome';
+      groupMembers = [s.binome];
+    }
     studentParty = {
       name: s.display_name || demand.student_name,
       email: s.email || sd.email || '',
@@ -97,7 +115,9 @@ async function buildPartiesSnapshot(client, demand, encadrantEnt) {
       departement: s.departement || demand.departement || sd.dept || '',
       promotion: s.promotion || sd.promo || '',
       duree: (demand.duree || '').trim() || sd.duree || '2 mois',
-      binome: s.binome || sd.binome || null,
+      groupType,
+      groupMembers,
+      binome: groupMembers[0] || null,
     };
   };
 

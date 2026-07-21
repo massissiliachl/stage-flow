@@ -64,12 +64,170 @@ function renderRegForm(type){
 }
 
 function toggleBinomeFields(checked){
-  document.getElementById('reg_binome_fields').style.display = checked ? 'block' : 'none';
+  const el = document.getElementById('reg_binome_fields');
+  if (el) el.style.display = checked ? 'block' : 'none';
+}
+
+function renderStudentRegisterForm(){
+  const box = document.getElementById('studentLoginModalContent');
+  if (!box) return;
+  box.innerHTML = `
+    <p class="auth-sub">Créez votre compte étudiant pour postuler, signer et suivre votre convention PFE.</p>
+
+    <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text2)">👤 Identité</div>
+    <div class="form-group"><label class="form-label">Nom complet *</label><input id="reg_stu_name" class="form-input" placeholder="Ex: Djatout Nour El Houda"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">N° matricule *</label><input id="reg_stu_matricule" class="form-input" placeholder="Ex: 202133011300"></div>
+      <div class="form-group"><label class="form-label">Email universitaire *</label><input id="reg_stu_email" class="form-input" type="email" placeholder="Ex: n.djatout@univ-bejaia.dz"></div>
+    </div>
+
+    <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🎓 Parcours académique</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Spécialité *</label><input id="reg_stu_specialty" class="form-input" placeholder="Ex: Master 2 — Communication"></div>
+      <div class="form-group"><label class="form-label">Promotion</label><input id="reg_stu_promo" class="form-input" placeholder="Ex: 2025-2026"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Faculté</label><input id="reg_stu_faculte" class="form-input" placeholder="Ex: Faculté SHS"></div>
+      <div class="form-group"><label class="form-label">Département</label><input id="reg_stu_departement" class="form-input" placeholder="Ex: Sciences de la Communication"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Université</label><input id="reg_stu_university" class="form-input" value="Université Abderrahmane Mira — Béjaïa"></div>
+    <div class="form-group"><label class="form-label">Thème PFE (optionnel)</label><input id="reg_stu_theme" class="form-input" placeholder="Ex: Usage de l'IA en communication"></div>
+
+    <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">👥 Modalité du PFE</div>
+    <div class="form-group">
+      <label class="form-label">Type de projet *</label>
+      <select id="reg_stu_group_type" class="form-select" onchange="toggleStudentGroupFields(this.value)">
+        <option value="solo">Seul(e) — PFE individuel</option>
+        <option value="binome">Binôme — 2 étudiants</option>
+        <option value="quadrinome">Quadrinôme — 4 étudiants</option>
+      </select>
+    </div>
+    <div id="reg_stu_group_fields" style="display:none">
+      <p class="text-xs text-muted mb12" id="reg_stu_group_hint">Renseignez votre(vos) coéquipier(s). Vous partagerez le même thème, la même entreprise et la même convention.</p>
+      <div id="reg_stu_members"></div>
+    </div>
+
+    <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🔐 Compte de connexion</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Mot de passe *</label><input id="reg_stu_pw" type="password" class="form-input" placeholder="Min. 6 caractères"></div>
+      <div class="form-group"><label class="form-label">Confirmer *</label><input id="reg_stu_pw2" type="password" class="form-input" placeholder="••••••••"></div>
+    </div>
+
+    <button class="btn btn-cyan w-full" onclick="submitRegisterEtudiant()">✨ Créer mon compte étudiant</button>
+    <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
+      Déjà inscrit(e) ?
+      <a href="#" onclick="openStudentLoginModal();return false;" style="color:var(--cyan2);font-weight:600">Se connecter</a>
+    </p>`;
+  toggleStudentGroupFields('solo');
+}
+
+function toggleStudentGroupFields(groupType){
+  const wrap = document.getElementById('reg_stu_group_fields');
+  const membersBox = document.getElementById('reg_stu_members');
+  const hint = document.getElementById('reg_stu_group_hint');
+  if (!wrap || !membersBox) return;
+
+  const count = groupType === 'binome' ? 1 : groupType === 'quadrinome' ? 3 : 0;
+  wrap.style.display = count ? 'block' : 'none';
+  if (hint) {
+    hint.textContent = groupType === 'binome'
+      ? 'Renseignez votre coéquipier. Vous partagerez le même thème, la même entreprise et la même convention.'
+      : 'Renseignez vos 3 coéquipiers. Vous partagerez le même thème, la même entreprise et la même convention.';
+  }
+
+  membersBox.innerHTML = Array.from({ length: count }, (_, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--r2);padding:12px;margin-bottom:10px">
+      <div class="text-xs text-muted mb8" style="font-weight:600">Coéquipier ${i + 1}</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nom complet *</label><input id="reg_stu_member_name_${i}" class="form-input" placeholder="Nom et prénom"></div>
+        <div class="form-group"><label class="form-label">Email universitaire</label><input id="reg_stu_member_email_${i}" class="form-input" type="email" placeholder="email@univ-bejaia.dz"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Matricule</label><input id="reg_stu_member_matricule_${i}" class="form-input" placeholder="N° matricule"></div>
+    </div>
+  `).join('');
+}
+
+function collectStudentGroupMembers(groupType){
+  const count = groupType === 'binome' ? 1 : groupType === 'quadrinome' ? 3 : 0;
+  const members = [];
+  for (let i = 0; i < count; i++) {
+    members.push({
+      name: (document.getElementById(`reg_stu_member_name_${i}`)?.value || '').trim(),
+      email: (document.getElementById(`reg_stu_member_email_${i}`)?.value || '').trim(),
+      matricule: (document.getElementById(`reg_stu_member_matricule_${i}`)?.value || '').trim(),
+    });
+  }
+  return members;
+}
+
+function openStudentRegisterModal(){
+  document.getElementById('studentLoginModal').classList.add('open');
+  const title = document.querySelector('#studentLoginModal .modal-title');
+  if (title) title.textContent = '🎓 Inscription Étudiant';
+  renderStudentRegisterForm();
 }
 
 function submitRegister(type){
+  if (type === 'etudiant') return submitRegisterEtudiant();
   return submitRegisterEntreprise();
 }
+
+async function submitRegisterEtudiant(){
+  const name = (document.getElementById('reg_stu_name')?.value || '').trim();
+  const matricule = (document.getElementById('reg_stu_matricule')?.value || '').trim();
+  const email = (document.getElementById('reg_stu_email')?.value || '').trim().toLowerCase();
+  const specialty = (document.getElementById('reg_stu_specialty')?.value || '').trim();
+  const promo = (document.getElementById('reg_stu_promo')?.value || '').trim();
+  const faculte = (document.getElementById('reg_stu_faculte')?.value || '').trim();
+  const departement = (document.getElementById('reg_stu_departement')?.value || '').trim();
+  const university = (document.getElementById('reg_stu_university')?.value || '').trim();
+  const theme = (document.getElementById('reg_stu_theme')?.value || '').trim();
+  const pw = document.getElementById('reg_stu_pw')?.value || '';
+  const pw2 = document.getElementById('reg_stu_pw2')?.value || '';
+  const groupType = document.getElementById('reg_stu_group_type')?.value || 'solo';
+  const groupMembers = collectStudentGroupMembers(groupType);
+
+  if (!name || !matricule || !email || !specialty || !pw) {
+    showToast('⚠️ Nom, matricule, email, spécialité et mot de passe sont obligatoires');
+    return;
+  }
+  if (pw !== pw2) { showToast('⚠️ Les mots de passe ne correspondent pas'); return; }
+  if (pw.length < 6) { showToast('⚠️ Mot de passe : minimum 6 caractères'); return; }
+  if (groupType !== 'solo' && groupMembers.some((m) => !m.name)) {
+    showToast('⚠️ Renseignez le nom de chaque coéquipier');
+    return;
+  }
+
+  const payload = {
+    name, matricule, email, password: pw, specialty, promo, university,
+    faculte, departement, theme, groupType, groupMembers,
+  };
+
+  try {
+    const data = await apiJson('/api/auth/etudiant/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const account = { ...data.user, password: pw, _role: 'etudiant' };
+    registeredAccounts.etudiant[matricule] = account;
+    closeOverlay('studentLoginModal');
+    showToast(`✅ Compte créé — bienvenue ${name}`);
+    state.role = 'etudiant';
+    state.user = account;
+    await syncEtudiantFromDb();
+    hideLanding();
+    const app = document.getElementById('app');
+    app.style.display = 'flex'; app.style.flexDirection = 'column';
+    document.getElementById('userNameDisplay').textContent = account.name;
+    document.getElementById('userRoleDisplay').textContent = 'Étudiante';
+    document.getElementById('avatarDisplay').textContent = account.avatar || account.name.slice(0, 2).toUpperCase();
+    buildSidebar(); buildNotifList(); navigateTo(getDefaultPage());
+    startSharedSync();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Erreur lors de la création du compte'));
+  }
+}
+
 
 async function submitRegisterEntreprise(){
   const email     = (document.getElementById('reg_email')?.value||'').trim().toLowerCase();

@@ -135,7 +135,14 @@ const users = {
       email:'t.hamadach@univ-bejaia.dz',
       specialty:'Master 2 — Communication et Relations Publiques',
       avatar:'HT'
-    }
+    },
+    groupType: 'binome',
+    groupMembers: [{
+      name:'Hamadach Tinhinan',
+      email:'t.hamadach@univ-bejaia.dz',
+      specialty:'Master 2 — Communication et Relations Publiques',
+      avatar:'HT'
+    }]
   },
   entreprise: { name:'Direction RH', company:'Cevital', sector:'Agroalimentaire', wilaya:'Béjaïa', avatar:'CV', identifiant:'CEVITALAGRO', password:'13102026' }
 };

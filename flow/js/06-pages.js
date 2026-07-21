@@ -8,7 +8,7 @@ function getPageHTML(id) {
 'dashboard':`
 <div class="page-header">
   <h2>Bonjour, ${u.name.split(' ')[0]} 👋</h2>
-  <p>${u.specialty} · ${u.university}${u.binome ? ` · 👥 En binôme avec ${u.binome.name}` : ''}</p>
+  <p>${u.specialty} · ${u.university}${(() => { const g = normalizeStudentGroup(u); return g.groupType !== 'solo' ? ` · 👥 ${groupTypeLabel(g.groupType)} : ${formatStudentGroupLabel(u)}` : ''; })()}</p>
 </div>
 <div class="grid-4 mb16">
   ${(()=>{
@@ -310,28 +310,36 @@ ${(()=>{ const company=companies.find(c=>c.name===myConv.company); if(!company) 
   </div>
 </div>
 <div class="card mt16">
-  <div class="card-title">👥 Binôme de stage</div>
-  ${u.binome ? `
-  <div class="flex items-center justify-between" style="border:1px solid var(--border);border-radius:var(--r2);padding:14px">
-    <div class="flex items-center gap12">
-      <div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;color:var(--navy)">${u.binome.avatar}</div>
-      <div>
-        <div class="text-sm" style="font-weight:600">${u.binome.name}</div>
-        <div class="text-xs text-muted">${u.binome.specialty}</div>
-        <div class="text-xs text-muted" style="font-family:monospace">${u.binome.email}</div>
+  <div class="card-title">👥 Groupe de stage (${groupTypeLabel(normalizeStudentGroup(u).groupType)})</div>
+  ${(() => {
+    const group = normalizeStudentGroup(u);
+    if (group.groupType === 'solo' || !group.members.length) {
+      return `<p class="text-sm text-muted mb12">Vous travaillez seul(e) sur ce PFE. Vous pouvez modifier votre groupe depuis une nouvelle inscription ou contacter l'administration.</p>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nom complet du binôme</label><input id="binomeName" class="form-input" placeholder="Ex: Hamadach Tinhinan"></div>
+        <div class="form-group"><label class="form-label">Email universitaire</label><input id="binomeEmail" class="form-input" placeholder="Ex: t.hamadach@univ-bejaia.dz"></div>
       </div>
+      <button class="btn btn-cyan" onclick="addBinome()">+ Ajouter un binôme (démo locale)</button>`;
+    }
+    return `<div style="display:flex;flex-direction:column;gap:10px">
+      <div class="flex items-center justify-between" style="border:1px solid var(--border);border-radius:var(--r2);padding:14px;background:rgba(0,196,140,0.04)">
+        <div><div class="text-sm" style="font-weight:600">${u.name} (vous)</div><div class="text-xs text-muted">${u.matricule || ''} · ${u.email || ''}</div></div>
+        <span class="status-pill s-active">Titulaire</span>
+      </div>
+      ${group.members.map((m, i) => `
+        <div class="flex items-center justify-between" style="border:1px solid var(--border);border-radius:var(--r2);padding:14px">
+          <div class="flex items-center gap12">
+            <div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;color:var(--navy)">${(m.avatar || m.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase())}</div>
+            <div>
+              <div class="text-sm" style="font-weight:600">${m.name}</div>
+              <div class="text-xs text-muted">${m.email || '—'}${m.matricule ? ' · ' + m.matricule : ''}</div>
+            </div>
+          </div>
+          <span class="text-xs text-muted">Coéquipier ${i + 1}</span>
+        </div>`).join('')}
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="removeBinome()">Retirer</button>
-  </div>
-  <p class="text-xs text-muted mt12">Ce binôme partage le même thème de PFE, la même entreprise d'accueil et la même convention de stage.</p>
-  ` : `
-  <p class="text-sm text-muted mb12">Vous travaillez actuellement seul(e) sur ce PFE. Vous pouvez ajouter un(e) binôme — il/elle partagera le même thème, la même entreprise et la même convention.</p>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">Nom complet du binôme</label><input id="binomeName" class="form-input" placeholder="Ex: Hamadach Tinhinan"></div>
-    <div class="form-group"><label class="form-label">Email universitaire</label><input id="binomeEmail" class="form-input" placeholder="Ex: t.hamadach@univ-bejaia.dz"></div>
-  </div>
-  <button class="btn btn-cyan" onclick="addBinome()">+ Ajouter le binôme</button>
-  `}
+    <p class="text-xs text-muted mt12">Ce groupe partage le même thème PFE, la même entreprise d'accueil et la même convention de stage.</p>`;
+  })()}
 </div>`,
 
 // ── ENTREPRISE ──────────────

@@ -290,7 +290,8 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
       ),
       pool.query(
         `SELECT id, reference, student_name, entreprise_nom, theme, periode, status,
-                signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures
+                signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+                document_hash, final_integrity_hash, hash_algorithm
          FROM conventions
          WHERE entreprise_id = $1
          ORDER BY id DESC`,

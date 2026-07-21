@@ -205,6 +205,9 @@ CREATE TABLE IF NOT EXISTS conventions (
   university_id       UUID REFERENCES universities(id) ON DELETE SET NULL,
   department_id       UUID REFERENCES departments(id) ON DELETE SET NULL,
   is_generated        BOOLEAN DEFAULT FALSE,
+  document_hash       TEXT,
+  final_integrity_hash TEXT,
+  hash_algorithm      TEXT DEFAULT 'SHA-256',
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   updated_at          TIMESTAMPTZ DEFAULT NOW()
 );

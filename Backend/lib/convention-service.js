@@ -1,4 +1,5 @@
 const { mapConventionRow, buildPartiesSnapshot, parseSignaturesJson } = require('./convention-map');
+const { computeDocumentHash, computeFinalIntegrityHash, HASH_ALGORITHM } = require('./convention-hash');
 
 function resolveConventionPeriode(demand, parties) {
   const duree = (demand.duree || parties?.student?.duree || '').trim();
@@ -41,6 +42,7 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
     const row = existingConv.rows[0];
     const sig = parseSignaturesJson(row.signatures);
     sig.parties = parties;
+    const documentHash = computeDocumentHash({ ...row, signatures: sig }, sig);
     const upd = await client.query(
       `UPDATE conventions SET
          signatures = $2::jsonb,
@@ -48,6 +50,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
          faculte = $4,
          departement = $5,
          periode = $6,
+         document_hash = $7,
+         hash_algorithm = $8,
          updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -58,6 +62,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
         parties.student.faculte || demand.faculte,
         parties.student.departement || demand.departement,
         periode,
+        documentHash,
+        HASH_ALGORITHM,
       ]
     );
     return mapConventionRow(upd.rows[0]);
@@ -65,11 +71,24 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
 
   const signaturesPayload = JSON.stringify({ parties });
   const reference = await nextConventionReference(client);
+  const draftRow = {
+    reference,
+    student_name: demand.student_name,
+    entreprise_nom: demand.entreprise_nom,
+    entreprise_id: demand.entreprise_id,
+    theme: demand.theme,
+    periode,
+    faculte: parties.student.faculte || demand.faculte,
+    departement: parties.student.departement || demand.departement,
+    signatures: { parties },
+  };
+  const documentHash = computeDocumentHash(draftRow, { parties });
   const convRes = await client.query(
     `INSERT INTO conventions (
        reference, student_id, student_name, entreprise_id, entreprise_nom,
-       theme, periode, status, faculte, departement, is_generated, signatures
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb)
+       theme, periode, status, faculte, departement, is_generated, signatures,
+       document_hash, hash_algorithm
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb, $11, $12)
      RETURNING *`,
     [
       reference,
@@ -82,6 +101,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
       parties.student.faculte || demand.faculte,
       parties.student.departement || demand.departement,
       signaturesPayload,
+      documentHash,
+      HASH_ALGORITHM,
     ]
   );
   return mapConventionRow(convRes.rows[0]);

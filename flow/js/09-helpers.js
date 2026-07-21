@@ -19,8 +19,43 @@ function signRow(role,name,signed,date){
 }
 
 // ──────────────────────────────────
-// BINÔME DE STAGE
+// BINÔME / QUADRINÔME DE STAGE
 // ──────────────────────────────────
+function normalizeStudentGroup(user) {
+  if (!user) return { groupType: 'solo', members: [] };
+  if (user.groupType && Array.isArray(user.groupMembers)) {
+    return { groupType: user.groupType, members: user.groupMembers };
+  }
+  const binome = user.binome;
+  if (binome && binome.groupType && Array.isArray(binome.members)) {
+    return { groupType: binome.groupType, members: binome.members };
+  }
+  if (binome && binome.name) {
+    return { groupType: 'binome', members: [binome] };
+  }
+  return { groupType: 'solo', members: [] };
+}
+
+function groupTypeLabel(type) {
+  return { solo: 'Seul(e)', binome: 'Binôme', quadrinome: 'Quadrinôme' }[type] || type;
+}
+
+function formatStudentGroupLabel(user) {
+  if (!user || !user.name) return '';
+  const group = normalizeStudentGroup(user);
+  if (group.groupType === 'solo' || !group.members.length) return user.name;
+  const names = [user.name, ...group.members.map((m) => m.name)];
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+function formatStudentGroupShort(user) {
+  const group = normalizeStudentGroup(user);
+  if (group.groupType === 'solo' || !group.members.length) return '';
+  if (group.groupType === 'binome') return `en binôme avec ${group.members[0].name}`;
+  return `en quadrinôme avec ${group.members.map((m) => m.name).join(', ')}`;
+}
+
 // Enregistre les modifications du profil étudiant dans state.user
 function saveProfile(){
   const u = etu();
@@ -204,7 +239,7 @@ function openDemande(id,name){
     <div class="form-group"><label class="form-label">Message de motivation</label><textarea id="demandeMessage" class="form-textarea" placeholder="Vos motivations...">${buildLettreEnvoiCourte(u, name)}</textarea></div>
     <div class="sign-info-box">
       <span style="font-size:16px;flex-shrink:0">📝</span>
-      <span>Une lettre d'envoi complète sera générée automatiquement à partir de votre profil (${u.name}${u.binome?' & '+u.binome.name:''}) et envoyée avec votre candidature.</span>
+      <span>Une lettre d'envoi complète sera générée automatiquement à partir de votre profil (${formatStudentGroupLabel(u)}) et envoyée avec votre candidature.</span>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
@@ -215,7 +250,7 @@ function openDemande(id,name){
 
 // Génère une lettre d'envoi courte (aperçu dans le formulaire de candidature)
 function buildLettreEnvoiCourte(u, companyName){
-  return `Madame, Monsieur,\n\nJe suis ${u.name}${u.binome?' (en binôme avec '+u.binome.name+')':''}, étudiant(e) en ${u.specialty||'spécialité non précisée'} à ${u.university||'mon université'}. Je sollicite un stage de fin d'études chez ${companyName} dans le cadre de mon PFE portant sur : « ${u.theme||'thème à préciser'} ».\n\nDans l'attente de votre retour favorable, je vous prie d'agréer mes salutations distinguées.`;
+  return `Madame, Monsieur,\n\nJe suis ${u.name}${formatStudentGroupShort(u) ? ' (' + formatStudentGroupShort(u) + ')' : ''}, étudiant(e) en ${u.specialty||'spécialité non précisée'} à ${u.university||'mon université'}. Je sollicite un stage de fin d'études chez ${companyName} dans le cadre de mon PFE portant sur : « ${u.theme||'thème à préciser'} ».\n\nDans l'attente de votre retour favorable, je vous prie d'agréer mes salutations distinguées.`;
 }
 
 async function submitDemande(companyName){
@@ -246,7 +281,7 @@ async function submitDemande(companyName){
         entrepriseId: entId,
         entrepriseNom: companyName,
         studentName: u.name,
-        studentLabel: u.binome ? `${u.name} & ${u.binome.name}` : u.name,
+        studentLabel: formatStudentGroupLabel(u),
         studentId: u.id || null,
         theme,
         message,

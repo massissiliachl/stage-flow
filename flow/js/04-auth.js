@@ -36,11 +36,17 @@ function showLogin(role) {
 // CONNEXION ÉTUDIANT — matricule + mot de passe
 // ──────────────────────────────────
 function openStudentLoginModal(){
+  const title = document.querySelector('#studentLoginModal .modal-title');
+  if (title) title.textContent = '🎓 Connexion Étudiant';
   document.getElementById('studentLoginModalContent').innerHTML = `
     <p class="auth-sub">Connectez-vous avec votre matricule et votre mot de passe.</p>
     <div class="form-group"><label class="form-label">N° matricule</label><input id="studentLoginMatricule" class="form-input" placeholder="Votre numéro de matricule"></div>
     <div class="form-group"><label class="form-label">Mot de passe</label><input id="studentLoginPassword" type="password" class="form-input" placeholder="••••••••"></div>
     <button class="btn btn-cyan w-full" onclick="submitStudentLogin()">Se connecter</button>
+    <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
+      Pas encore de compte ?
+      <a href="#" onclick="openStudentRegisterModal();return false;" style="color:var(--cyan2);font-weight:600">S'inscrire (binôme / quadrinôme)</a>
+    </p>
     <div class="auth-demo-box">
       <div class="text-xs text-muted mb8" style="font-weight:600">Compte de démonstration :</div>
       <div class="auth-demo-row" onclick="fillStudentLogin('202133011300','13102026')" style="cursor:pointer">
@@ -61,7 +67,30 @@ async function submitStudentLogin(){
   const matricule = (document.getElementById('studentLoginMatricule').value||'').trim();
   const password  = document.getElementById('studentLoginPassword').value||'';
 
-  // Cherche parmi les comptes inscrits dynamiquement, puis le compte de démonstration
+  try {
+    const data = await apiJson('/api/auth/etudiant/login', {
+      method: 'POST',
+      body: JSON.stringify({ matricule, password }),
+    });
+    const account = { ...data.user, password, _role: 'etudiant' };
+    registeredAccounts.etudiant[matricule] = account;
+    state.role = 'etudiant';
+    state.user = account;
+    await syncEtudiantFromDb();
+    closeOverlay('studentLoginModal');
+    hideLanding();
+    const app = document.getElementById('app');
+    app.style.display = 'flex'; app.style.flexDirection = 'column';
+    document.getElementById('userNameDisplay').textContent = state.user.name;
+    document.getElementById('userRoleDisplay').textContent = 'Étudiante';
+    document.getElementById('avatarDisplay').textContent = state.user.avatar || state.user.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    buildSidebar(); buildNotifList(); navigateTo(getDefaultPage());
+    startSharedSync();
+    return;
+  } catch (err) {
+    // repli comptes locaux / démo
+  }
+
   let account = Object.values(registeredAccounts.etudiant).find(s=>s.matricule===matricule && s.password===password);
   if(!account && users.etudiant.matricule===matricule && users.etudiant.password===password){
     account = users.etudiant;

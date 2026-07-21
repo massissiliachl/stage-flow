@@ -131,31 +131,41 @@ async function persistSharedData(){
 // Sauvegarde l'état d'une convention (signatures + statut) dans le stockage partagé
 async function persistConventionState(conventionId){
   const conv = conventions.find(c=>c.id===conventionId);
-  if(!conv) return;
+  if(!conv) return null;
   sharedData.conventionStates[conventionId] = {
     signed_etudiant: !!conv.signed_etudiant,
     signed_entreprise: !!conv.signed_entreprise,
     signed_univ: !!conv.signed_univ,
     status: conv.status,
-    signatures: conv.signatures || {}
+    signatures: conv.signatures || {},
+    documentHash: conv.documentHash || null,
+    finalIntegrityHash: conv.finalIntegrityHash || null,
   };
   await persistSharedData();
   if (conv.fromDb && typeof apiJson === 'function' && state.role) {
     const sig = conv.signatures && conv.signatures[state.role];
     if (sig) {
       try {
+        const payload = {
+          type: sig.type,
+          data: sig.data || null,
+          text: sig.text || null,
+        };
         const data = await apiJson('/api/conventions/' + conventionId + '/sign', {
           method: 'PATCH',
-          body: JSON.stringify({ role: state.role, signature: sig }),
+          body: JSON.stringify({ role: state.role, signature: payload }),
         });
         if (data.convention && typeof mergeConventionFromApi === 'function') {
           mergeConventionFromApi(data.convention);
         }
+        return data;
       } catch (e) {
         console.warn('[StageFlow] Signature convention (base):', e.message);
+        throw e;
       }
     }
   }
+  return null;
 }
 
 // Sauvegarde l'état d'une demande (statut accepté/refusé)

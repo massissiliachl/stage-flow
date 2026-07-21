@@ -363,6 +363,10 @@ function renderLandingTexts(){
 }
 
 function showLogin(role){
+  if (role === 'etudiant') {
+    window.location.href = 'etudiant.html';
+    return;
+  }
   window.location.href = ROLE_PAGES[role] || 'index.html';
 }
 

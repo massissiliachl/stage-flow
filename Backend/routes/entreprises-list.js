@@ -2,6 +2,13 @@ const express = require('express');
 const { getPool } = require('../lib/db');
 const { mapConventionRow, parseSignaturesJson } = require('../lib/convention-map');
 const {
+  computeDocumentHash,
+  computeFinalIntegrityHash,
+  buildStoredSignature,
+  verifyConventionIntegrity,
+  HASH_ALGORITHM,
+} = require('../lib/convention-hash');
+const {
   createOrUpdateConventionForDemand,
   ensureConventionsForStudent,
 } = require('../lib/convention-service');
@@ -374,6 +381,15 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
   if (!role || !['entreprise', 'universite'].includes(role)) {
     return res.status(400).json({ error: 'Seuls l\'entreprise et la doyenne (université) peuvent signer la convention' });
   }
+  if (!signature || (signature.type !== 'type' && signature.type !== 'draw')) {
+    return res.status(400).json({ error: 'Signature invalide' });
+  }
+  if (signature.type === 'draw' && !signature.data) {
+    return res.status(400).json({ error: 'Signature graphique manquante' });
+  }
+  if (signature.type === 'type' && !String(signature.text || '').trim()) {
+    return res.status(400).json({ error: 'Nom de signature manquant' });
+  }
 
   try {
     const pool = getPool();
@@ -383,8 +399,16 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
     }
 
     const row = existing.rows[0];
+    if (role === 'entreprise' && row.signed_entreprise) {
+      return res.status(409).json({ error: 'Convention déjà signée par l\'entreprise' });
+    }
+    if (role === 'universite' && row.signed_universite) {
+      return res.status(409).json({ error: 'Convention déjà signée par l\'université' });
+    }
+
     const sig = parseSignaturesJson(row.signatures);
-    if (signature) sig[role] = signature;
+    const documentHash = computeDocumentHash(row, sig);
+    sig[role] = buildStoredSignature(convId, role, signature, documentHash);
 
     let signedEtudiant = Boolean(row.signed_etudiant);
     let signedEntreprise = Boolean(row.signed_entreprise);
@@ -400,6 +424,12 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
       status = status === 'archived' ? status : 'active';
     }
 
+    const finalIntegrityHash = computeFinalIntegrityHash(
+      documentHash,
+      sig.entreprise,
+      sig.universite
+    );
+
     const upd = await pool.query(
       `UPDATE conventions SET
          signatures = $2::jsonb,
@@ -407,15 +437,34 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
          signed_entreprise = $4,
          signed_universite = $5,
          status = $6,
+         document_hash = $7,
+         final_integrity_hash = $8,
+         hash_algorithm = $9,
          updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [convId, JSON.stringify(sig), signedEtudiant, signedEntreprise, signedUniversite, status]
+      [
+        convId,
+        JSON.stringify(sig),
+        signedEtudiant,
+        signedEntreprise,
+        signedUniversite,
+        status,
+        documentHash,
+        finalIntegrityHash,
+        HASH_ALGORITHM,
+      ]
     );
 
     res.json({
       message: 'Signature enregistrée',
       convention: mapConventionRow(upd.rows[0]),
+      integrity: {
+        documentHash,
+        signatureHash: sig[role].hash,
+        finalIntegrityHash,
+        algorithm: HASH_ALGORITHM,
+      },
       stageLocked: signedEntreprise && signedUniversite,
     });
   } catch (err) {
@@ -434,7 +483,8 @@ conventionsRouter.get('/', async (req, res) => {
     await ensureConventionsForStudent(pool, studentName);
     const result = await pool.query(
       `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
-              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures
+              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+              document_hash, final_integrity_hash, hash_algorithm
        FROM conventions
        WHERE student_name = $1
        ORDER BY id DESC`,
@@ -444,6 +494,33 @@ conventionsRouter.get('/', async (req, res) => {
   } catch (err) {
     console.error('List conventions étudiant error:', err.message);
     res.status(500).json({ error: 'Erreur lors du chargement des conventions' });
+  }
+});
+
+/**
+ * GET /api/conventions/:conventionId/verify
+ * Vérifie l'intégrité documentaire (SHA-256)
+ */
+conventionsRouter.get('/:conventionId/verify', async (req, res) => {
+  const convId = parseInt(req.params.conventionId, 10);
+  if (!convId || Number.isNaN(convId)) {
+    return res.status(400).json({ error: 'Identifiant convention invalide' });
+  }
+  try {
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM conventions WHERE id = $1', [convId]);
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Convention introuvable' });
+    }
+    const verification = verifyConventionIntegrity(result.rows[0]);
+    res.json({
+      conventionId: convId,
+      reference: result.rows[0].reference,
+      ...verification,
+    });
+  } catch (err) {
+    console.error('Convention verify error:', err.message);
+    res.status(500).json({ error: 'Erreur lors de la vérification de la convention' });
   }
 });
 
@@ -460,7 +537,8 @@ conventionsRouter.get('/:conventionId', async (req, res) => {
     const pool = getPool();
     const result = await pool.query(
       `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
-              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures
+              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+              document_hash, final_integrity_hash, hash_algorithm
        FROM conventions WHERE id = $1`,
       [convId]
     );
