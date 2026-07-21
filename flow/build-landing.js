@@ -256,14 +256,6 @@ function enterEntrepriseApp`
 }
 
 function patchEtudiantDb(code, file) {
-  if (file === '03-univ-accounts.js') {
-    code = code.replace(
-      /(etudiant: \{\s*)name:'Djatout Nour El Houda',/,
-      `$1id:'d1111111-1111-1111-1111-111111111111',
-    name:'Djatout Nour El Houda',
-    faculte:'Faculté SHS',`
-    );
-  }
   if (file === '02-data.js') {
     code = code.replace(
       /showToast\('❌ ' \+ \(err\.message \|\| 'Erreur enregistrement'\)\);\s*\n  \}\s*\n\}\s*\n\s*function enterEntrepriseApp/,
@@ -358,10 +350,6 @@ function getStudentConvention(u) {
   const fromDb = mine.filter(function(c) { return c.fromDb; });
   if (fromDb.length) return fromDb.sort(function(a, b) { return b.id - a.id; })[0];
   if (studentHasRealDemandes(u)) return null;
-  if (state.role !== 'etudiant' && u === users.etudiant) {
-    const demo = conventions.find(function(c) { return c.id === 1 && !c.fromDb; });
-    if (demo) return demo;
-  }
   return null;
 }
 
@@ -728,11 +716,11 @@ function patchStudentDashboard(code) {
 function patchStudentConventionPage(code) {
   code = code.replace(
     /const conv=\(typeof getStudentConvention===\\'function\\'?getStudentConvention\(u\):null\)\|\|conventions\.find\(c=>c\.id===1\)/g,
-    "const conv=(typeof getStudentConvention==='function'?getStudentConvention(u):null)||((typeof studentHasRealDemandes==='function'&&studentHasRealDemandes(u))?{signed_entreprise:false,signed_univ:false,status:'pending',company:((demandes.find(d=>(d.studentName||'')===u.name&&d.status==='accepted'))||{}).company||'—'}:conventions.find(c=>c.id===1))"
+    "const conv=(typeof getStudentConvention==='function'?getStudentConvention(u):null)||((typeof studentHasRealDemandes==='function'&&studentHasRealDemandes(u))?{signed_entreprise:false,signed_univ:false,status:'pending',company:((demandes.find(d=>(d.studentName||'')===u.name&&d.status==='accepted'))||{}).company||'—'}:null)"
   );
   code = code.replace(
     /const conv=conventions\.find\(c=>c\.id===1\)/g,
-    "const conv=(typeof getStudentConvention==='function'?getStudentConvention(u):null)||((typeof studentHasRealDemandes==='function'&&studentHasRealDemandes(u))?{signed_entreprise:false,signed_univ:false,status:'pending',company:((demandes.find(d=>(d.studentName||'')===u.name&&d.status==='accepted'))||{}).company||'—'}:conventions.find(c=>c.id===1))"
+    "const conv=(typeof getStudentConvention==='function'?getStudentConvention(u):null)||((typeof studentHasRealDemandes==='function'&&studentHasRealDemandes(u))?{signed_entreprise:false,signed_univ:false,status:'pending',company:((demandes.find(d=>(d.studentName||'')===u.name&&d.status==='accepted'))||{}).company||'—'}:null)"
   );
   code = code.replace(
     /Convention n° SF-2026-047 — Cevital/,
@@ -757,12 +745,9 @@ function patchStudentConventionPage(code) {
   );
   code = code.replace(
     /const sigCount = isMainDemo\s*\n\s*\? \[state\.signatures\.entreprise,state\.signatures\.universite\]\.filter\(Boolean\)\.length\s*\n\s*: \[myConv\.signed_etudiant,myConv\.signed_entreprise,myConv\.signed_univ\]\.filter\(Boolean\)\.length;\s*\n\s*const sigEnt = isMainDemo \? state\.signatures\.entreprise : myConv\.signed_entreprise;\s*\n\s*const sigUniv = isMainDemo \? state\.signatures\.universite : myConv\.signed_univ;/,
-    `const useLocalDemo = myConv && myConv.id===1 && !myConv.fromDb && u===users.etudiant;
-  const sigCount = useLocalDemo
-    ? [state.signatures.entreprise,state.signatures.universite].filter(Boolean).length
-    : [myConv.signed_entreprise,myConv.signed_univ].filter(Boolean).length;
-  const sigEnt = useLocalDemo ? state.signatures.entreprise : myConv.signed_entreprise;
-  const sigUniv = useLocalDemo ? state.signatures.universite : myConv.signed_univ;
+    `const sigCount = [myConv.signed_entreprise,myConv.signed_univ].filter(Boolean).length;
+  const sigEnt = myConv.signed_entreprise;
+  const sigUniv = myConv.signed_univ;
   const convRef = myConv.reference || ('SF-2026-0'+(myConv.id+46));
   const isSignedInDb = !!(myConv.fromDb && myConv.signed_entreprise && myConv.signed_univ);`
   );

@@ -83,21 +83,27 @@ function saveProfile(){
 }
 
 function addBinome(){
+  const u = etu();
+  if (!u) { showToast('⚠️ Connectez-vous avec votre compte étudiant'); return; }
   const name = (document.getElementById('binomeName').value||'').trim();
   const email = (document.getElementById('binomeEmail').value||'').trim();
   if(!name){ showToast('⚠️ Merci de renseigner le nom du binôme'); return; }
   const initials = name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'BN';
-  users.etudiant.binome = {
-    name, email: email || '—',
-    specialty: etu().specialty,
-    avatar: initials
-  };
+  u.binome = { name, email: email || '—', specialty: u.specialty, avatar: initials };
+  u.groupType = 'binome';
+  u.groupMembers = [u.binome];
+  if (state.user) Object.assign(state.user, u);
   showToast(`✅ ${name} ajouté(e) comme binôme de stage`);
   refreshCurrentView();
 }
 
 function removeBinome(){
-  etu().binome = null;
+  const u = etu();
+  if (!u) return;
+  u.binome = null;
+  u.groupType = 'solo';
+  u.groupMembers = [];
+  if (state.user) Object.assign(state.user, u);
   showToast('🗑️ Binôme retiré');
   refreshCurrentView();
 }
@@ -398,11 +404,9 @@ async function refuserDemandeById(demandeId){
 async function notifyUniversityOfAccord(demande){
   // Utilise les données de l'étudiant propriétaire de la demande (et non le compte connecté,
   // car cette fonction est appelée depuis le contexte "entreprise")
-  const studentName  = demande.studentName  || users.etudiant.name;
+  const studentName  = demande.studentName;
   const studentLabel = demande.studentLabel || studentName;
-  // Cherche le profil complet de l'étudiant (compte inscrit) pour récupérer ses infos académiques
-  const studentProfile = Object.values(registeredAccounts.etudiant).find(s=>s.name===studentName)
-    || (users.etudiant.name===studentName ? users.etudiant : null);
+  const studentProfile = Object.values(registeredAccounts.etudiant).find(s=>s.name===studentName) || null;
   const notif = {
     id: 'accord-'+demande.id+'-'+Date.now(),
     demandeId: demande.id,
@@ -475,7 +479,7 @@ function refuserDemande(n){
 }
 
 function validerConvention(n){
-  const conv = conventions.find(c=>c.etudiant===n) || conventions.find(c=>c.id===1);
+  const conv = conventions.find(c=>c.etudiant===n);
   if(conv){
     conv.signed_univ = true;
     if(conv.signed_entreprise && conv.signed_univ) conv.status = 'signed';
@@ -486,7 +490,7 @@ function validerConvention(n){
 }
 
 function archiverConvention(n){
-  const conv = conventions.find(c=>c.etudiant===n) || conventions.find(c=>c.id===1);
+  const conv = conventions.find(c=>c.etudiant===n);
   if(conv){
     conv.status = 'archived';
     persistConventionState(conv.id);
@@ -815,7 +819,7 @@ function downloadArchivedConvention(convId){
 
 // Télécharge un PDF simple pour un document du dossier (CV, attestation, etc.)
 function downloadGenericDocument(name){
-  const u = (state.role==='etudiant' ? state.user : null) || users.etudiant;
+  const u = etuOrEmpty();
   const innerHtml = `
     <div class="pdf-header">
       <div class="uni-name">StageFlow — Dossier étudiant</div>

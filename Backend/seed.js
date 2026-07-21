@@ -226,25 +226,6 @@ async function seed() {
     });
     await coordStages.save();
 
-    // Étudiant
-    const student = new User({
-      email: 'n.djatout@univ-bejaia.dz',
-      password: await bcrypt.hash('student123', 10),
-      firstName: 'Nour El Houda',
-      lastName: 'Djatout',
-      phone: '+213 6XX XX XX XX',
-      role: 'etudiant',
-      university: university._id,
-      faculty: faculty1._id,
-      department: dept1._id,
-      studentData: {
-        matricule: '24/00312/CRP',
-        specialty: 'Master 2 Communication et Relations Publiques',
-        promotion: '2025-2026'
-      }
-    });
-    await student.save();
-
     // Entreprise
     const company = new User({
       email: 'rh@cevital.com',
@@ -270,7 +251,6 @@ async function seed() {
     console.log('  - admin.fshs@univ-bejaia.dz (admin_faculte)');
     console.log('  - admin.sic@univ-bejaia.dz (admin_departement)');
     console.log('  - coord.sic@univ-bejaia.dz (responsable_stages)');
-    console.log('  - n.djatout@univ-bejaia.dz (etudiant)');
     console.log('  - rh@cevital.com (entreprise)');
 
     // ─────────────────────────────────────────────────────────
@@ -296,9 +276,7 @@ async function seed() {
     console.log('Admin Département (SIC):');
     console.log('  Email: admin.sic@univ-bejaia.dz');
     console.log('  Password: dept123\n');
-    console.log('Étudiant:');
-    console.log('  Email: n.djatout@univ-bejaia.dz');
-    console.log('  Password: student123\n');
+    console.log('Étudiants : inscription via POST /api/auth/etudiant/register\n');
 
     process.exit(0);
   } catch (error) {

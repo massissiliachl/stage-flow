@@ -184,10 +184,6 @@ function getStudentConvention(u) {
   const fromDb = mine.filter(function(c) { return c.fromDb; });
   if (fromDb.length) return fromDb.sort(function(a, b) { return b.id - a.id; })[0];
   if (studentHasRealDemandes(u)) return null;
-  if (state.role !== 'etudiant' && u === users.etudiant) {
-    const demo = conventions.find(function(c) { return c.id === 1 && !c.fromDb; });
-    if (demo) return demo;
-  }
   return null;
 }
 
@@ -245,8 +241,13 @@ function enterEntrepriseApp(account) {
   startSharedSync();
 }
 
-// Retourne le compte étudiant actif (compte inscrit ou compte démo)
-function etu(){ return (state.role==='etudiant' && state.user) ? state.user : users.etudiant; }
+function etuOrEmpty() {
+  const u = etu();
+  return u || { name: 'Étudiant', specialty: '—', university: '—', groupType: 'solo', groupMembers: [] };
+}
+
+// Retourne le compte étudiant connecté (inscription / connexion réelle uniquement)
+function etu(){ return (state.role==='etudiant' && state.user) ? state.user : null; }
 function ent(){ return (state.role==='entreprise' && state.user) ? state.user : users.entreprise; }
 function specialiteToTag(secteur){ return secteur ? secteur.split(/[\/,]/)[0].trim() : 'Stage'; }
 

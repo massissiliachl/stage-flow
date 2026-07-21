@@ -111,39 +111,7 @@ function buildOrgBreakdown(){
 }
 
 const users = {
-  etudiant: {
-    id:'d1111111-1111-1111-1111-111111111111',
-    name:'Djatout Nour El Houda',
-    faculte:'Faculté SHS',
-    email:'n.djatout@univ-bejaia.dz',
-    matricule:'202133011300',
-    password:'13102026',
-    specialty:'Master 2 — Communication et Relations Publiques',
-    promo:'2025-2026',
-    university:'Université Abderrahmane Mira — Béjaïa',
-    dept:'Département Sciences de la Communication',
-    avatar:'DN',
-    theme:"Usage de l'IA dans les pratiques de la communication commerciale",
-    company:'Cevital',
-    encadrant:'Dr. Hider Fouzia',
-    encadrant_ent:'M. Hamouchi — Directeur Marketing',
-    periode:'Février — Mars 2026 (2 mois)',
-    debut:'01 Février 2026',
-    fin:'31 Mars 2026',
-    binome: {
-      name:'Hamadach Tinhinan',
-      email:'t.hamadach@univ-bejaia.dz',
-      specialty:'Master 2 — Communication et Relations Publiques',
-      avatar:'HT'
-    },
-    groupType: 'binome',
-    groupMembers: [{
-      name:'Hamadach Tinhinan',
-      email:'t.hamadach@univ-bejaia.dz',
-      specialty:'Master 2 — Communication et Relations Publiques',
-      avatar:'HT'
-    }]
-  },
+  etudiant: null,
   entreprise: { name:'Direction RH', company:'Cevital', sector:'Agroalimentaire', wilaya:'Béjaïa', avatar:'CV', identifiant:'CEVITALAGRO', password:'13102026' }
 };
 
@@ -242,7 +210,6 @@ const companies = [
 ];
 
 const students_bejaia = [
-  { name:'Djatout Nour El Houda', specialty:'Master 2 Comm. & RP', theme:"Usage de l'IA dans la comm. commerciale", company:'Cevital', status:'active', faculte:'Faculté SHS', departement:'Département SIC' },
   { name:'Amira Bensaid', specialty:'Master 2 Comm. & RP', theme:'Stratégie de comm. digitale PME', company:'Djezzy', status:'accepted', faculte:'Faculté SHS', departement:'Département SIC' },
   { name:'Lyna Talbi', specialty:'Licence 3 Comm.', theme:'Relations publiques secteur bancaire', company:'BNA Banque', status:'accepted', faculte:'Faculté SHS', departement:'Département SIC' },
   { name:'Katia Ouali', specialty:'Master 2 SIC', theme:'IA et veille informationnelle', company:'Algérie Telecom', status:'pending', faculte:'Faculté SHS', departement:'Département SIC' },
@@ -253,13 +220,10 @@ const students_bejaia = [
 ];
 
 const demandes = [
-  { id:1, company:'Cevital', status:'accepted', date:'2026-01-10', theme:"Usage de l'IA dans les pratiques de la communication commerciale", encadrant:'M. Hamouchi', studentName:'Djatout Nour El Houda', studentLabel:'Djatout Nour El Houda' },
-  { id:2, company:'Djezzy', status:'pending', date:'2026-01-08', theme:"Usage de l'IA dans les pratiques de la communication commerciale", encadrant:'—', studentName:'Djatout Nour El Houda', studentLabel:'Djatout Nour El Houda' },
-  { id:3, company:'Ooredoo', status:'rejected', date:'2026-01-05', theme:"Usage de l'IA dans les pratiques de la communication commerciale", encadrant:'—', studentName:'Djatout Nour El Houda', studentLabel:'Djatout Nour El Houda' }
+  { id:4, company:'Djezzy', status:'pending', date:'2026-01-08', theme:'Stratégie de comm. digitale PME', encadrant:'—', studentName:'Amira Bensaid', studentLabel:'Amira Bensaid' }
 ];
 
 const conventions = [
-  { id:1, etudiant:'Djatout Nour El Houda', company:'Cevital', theme:"Usage de l'IA dans la comm. commerciale", periode:'Fév – Mar 2026', status:'active', signed_etudiant:false, signed_entreprise:false, signed_univ:false, faculte:'Faculté SHS', departement:'Département SIC' },
   { id:2, etudiant:'Amira Bensaid', company:'Djezzy', theme:'Stratégie comm. digitale', periode:'Fév – Mar 2026', status:'pending', signed_etudiant:true, signed_entreprise:false, signed_univ:false, faculte:'Faculté SHS', departement:'Département SIC' },
   { id:3, etudiant:'Sara Meziane', company:'Sonatrach', theme:'Communication de crise', periode:'Jan – Fév 2026', status:'archived', signed_etudiant:true, signed_entreprise:true, signed_univ:true, faculte:'Faculté SHS', departement:'Département SIC' },
   { id:4, etudiant:'Yacine Boudiaf', company:'Cabinet Maître Belkacem', theme:'Conformité juridique des startups', periode:'Mar – Avr 2026', status:'pending', signed_etudiant:true, signed_entreprise:false, signed_univ:false, faculte:'Faculté de Droit', departement:'Département Droit Privé' }
@@ -271,13 +235,11 @@ const DEFAULT_DEMANDES = JSON.parse(JSON.stringify(demandes));
 
 const notifications = {
   etudiant:[
-    { icon:'✅', color:'#D1FAE5', text:'Cevital a accepté votre demande de stage', time:'Il y a 2h', read:false },
-    { icon:'📄', color:'#DBEAFE', text:"Convention SF-2026-047 générée — en attente de signature", time:'Il y a 3h', read:false },
-    { icon:'⏳', color:'#FFF3CD', text:'Djezzy : demande en cours d\'examen', time:'Il y a 1j', read:true }
+    { icon:'📩', color:'#DBEAFE', text:'Bienvenue sur StageFlow — complétez votre profil et postulez aux offres', time:'Maintenant', read:false }
   ],
   entreprise:[
-    { icon:'📩', color:'#DBEAFE', text:'Nouvelle demande de Djatout Nour El Houda — Master Comm. & RP', time:'Il y a 1h', read:false },
-    { icon:'✍️', color:'#EDE9FE', text:'Convention SF-2026-047 en attente de votre signature', time:'Il y a 4h', read:false }
+    { icon:'📩', color:'#DBEAFE', text:'Nouvelles candidatures étudiantes disponibles', time:'Récemment', read:false },
+    { icon:'✍️', color:'#EDE9FE', text:'Conventions en attente de signature', time:'Récemment', read:false }
   ],
   universite:[
     { icon:'📋', color:'#D1FAE5', text:'3 nouvelles conventions à valider ce mois-ci', time:'Il y a 30min', read:false },

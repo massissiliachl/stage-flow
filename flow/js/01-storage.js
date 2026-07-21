@@ -103,8 +103,8 @@ function applySharedDataToModel(){
       c.studentRatingsCount = values.length;
     }
   });
-  // Synchronise les signatures de la convention active de l'étudiante (convention id 1)
-  const mainConv = conventions.find(c=>c.id===1);
+  // Synchronise les signatures de la convention active si nécessaire
+  const mainConv = typeof getStudentConvention === 'function' ? getStudentConvention(etu()) : null;
   if(mainConv && mainConv.signatures) state.signatures = mainConv.signatures;
 }
 

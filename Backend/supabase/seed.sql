@@ -1,4 +1,4 @@
--- Données de démonstration
+-- Données de démonstration (université, entreprises — pas d'étudiant pré-créé)
 
 INSERT INTO universities (id, name, acronym, wilaya, email)
 VALUES (
@@ -28,31 +28,6 @@ INSERT INTO entreprises (id, nom, domaine, secteur, wilaya, adresse, phone, emai
 SELECT setval(pg_get_serial_sequence('entreprises', 'id'), GREATEST((SELECT MAX(id) FROM entreprises), 1));
 
 INSERT INTO users (
-  id, email, login_id, password_hash, role, display_name, avatar,
-  university_id, faculty_id, department_id,
-  student_data, theme, encadrant, encadrant_ent, periode, debut, fin, binome
-) VALUES (
-  'd1111111-1111-1111-1111-111111111111',
-  'n.djatout@univ-bejaia.dz',
-  '202133011300',
-  '13102026',
-  'etudiant',
-  'Djatout Nour El Houda',
-  'DN',
-  'a1111111-1111-1111-1111-111111111111',
-  'b1111111-1111-1111-1111-111111111111',
-  'c1111111-1111-1111-1111-111111111111',
-  '{"matricule":"202133011300","specialty":"Master 2 — Communication et Relations Publiques","promo":"2025-2026"}'::jsonb,
-  'Usage de l''IA dans les pratiques de la communication commerciale',
-  'Dr. Hider Fouzia',
-  'M. Hamouchi — Directeur Marketing',
-  'Février — Mars 2026 (2 mois)',
-  '01 Février 2026',
-  '31 Mars 2026',
-  '{"name":"Hamadach Tinhinan","email":"t.hamadach@univ-bejaia.dz","specialty":"Master 2 — Communication et Relations Publiques","avatar":"HT"}'::jsonb
-);
-
-INSERT INTO users (
   id, login_id, password_hash, role, display_name, avatar, entreprise_id
 ) VALUES (
   'd2222222-2222-2222-2222-222222222222',
@@ -64,19 +39,10 @@ INSERT INTO users (
   1
 );
 
-INSERT INTO stage_demands (id, student_id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date) VALUES
-  (1, 'd1111111-1111-1111-1111-111111111111', 'Djatout Nour El Houda', 1, 'Cevital', 'Usage de l''IA dans les pratiques de la communication commerciale', 'M. Hamouchi', 'accepted', '2026-01-10'),
-  (2, 'd1111111-1111-1111-1111-111111111111', 'Djatout Nour El Houda', 3, 'Djezzy', 'Usage de l''IA dans les pratiques de la communication commerciale', '—', 'pending', '2026-01-08'),
-  (3, 'd1111111-1111-1111-1111-111111111111', 'Djatout Nour El Houda', 5, 'Ooredoo', 'Usage de l''IA dans les pratiques de la communication commerciale', '—', 'rejected', '2026-01-05');
-
-SELECT setval(pg_get_serial_sequence('stage_demands', 'id'), GREATEST((SELECT MAX(id) FROM stage_demands), 1));
+-- Les étudiants s'inscrivent via POST /api/auth/etudiant/register (solo / binôme / quadrinôme)
 
 INSERT INTO conventions (id, reference, student_id, student_name, entreprise_id, entreprise_nom, theme, periode, status, faculte, departement, university_id, department_id) VALUES
-  (1, 'SF-2026-047', 'd1111111-1111-1111-1111-111111111111', 'Djatout Nour El Houda', 1, 'Cevital', 'Usage de l''IA dans la comm. commerciale', 'Fév – Mar 2026', 'active', 'Faculté SHS', 'Département SIC', 'a1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111'),
   (2, 'SF-2026-048', NULL, 'Amira Bensaid', 3, 'Djezzy', 'Stratégie comm. digitale', 'Fév – Mar 2026', 'pending', 'Faculté SHS', 'Département SIC', 'a1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111'),
   (3, 'SF-2026-049', NULL, 'Sara Meziane', 2, 'Sonatrach', 'Communication de crise', 'Jan – Fév 2026', 'archived', 'Faculté SHS', 'Département SIC', 'a1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111');
 
 SELECT setval(pg_get_serial_sequence('conventions', 'id'), GREATEST((SELECT MAX(id) FROM conventions), 1));
-
-INSERT INTO students (user_id, matricule, specialty, theme, entreprise_nom, status, faculte, departement, faculty_id, department_id) VALUES
-  ('d1111111-1111-1111-1111-111111111111', '202133011300', 'Master 2 Comm. & RP', 'Usage de l''IA dans la comm. commerciale', 'Cevital', 'active', 'Faculté SHS', 'Département SIC', 'b1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111');

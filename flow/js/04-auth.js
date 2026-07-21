@@ -39,28 +39,15 @@ function openStudentLoginModal(){
   const title = document.querySelector('#studentLoginModal .modal-title');
   if (title) title.textContent = '🎓 Connexion Étudiant';
   document.getElementById('studentLoginModalContent').innerHTML = `
-    <p class="auth-sub">Connectez-vous avec votre matricule et votre mot de passe.</p>
+    <p class="auth-sub">Connectez-vous avec le matricule et le mot de passe créés lors de votre inscription.</p>
     <div class="form-group"><label class="form-label">N° matricule</label><input id="studentLoginMatricule" class="form-input" placeholder="Votre numéro de matricule"></div>
     <div class="form-group"><label class="form-label">Mot de passe</label><input id="studentLoginPassword" type="password" class="form-input" placeholder="••••••••"></div>
     <button class="btn btn-cyan w-full" onclick="submitStudentLogin()">Se connecter</button>
     <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
       Pas encore de compte ?
-      <a href="#" onclick="openStudentRegisterModal();return false;" style="color:var(--cyan2);font-weight:600">S'inscrire (binôme / quadrinôme)</a>
-    </p>
-    <div class="auth-demo-box">
-      <div class="text-xs text-muted mb8" style="font-weight:600">Compte de démonstration :</div>
-      <div class="auth-demo-row" onclick="fillStudentLogin('202133011300','13102026')" style="cursor:pointer">
-        <span class="auth-demo-type">Étudiante</span>
-        <span class="auth-demo-email">Djatout Nour El Houda — cliquez pour accéder directement</span>
-      </div>
-    </div>`;
+      <a href="#" onclick="openStudentRegisterModal();return false;" style="color:var(--cyan2);font-weight:600">Créer un compte (solo / binôme / quadrinôme)</a>
+    </p>`;
   document.getElementById('studentLoginModal').classList.add('open');
-}
-
-function fillStudentLogin(matricule, password){
-  document.getElementById('studentLoginMatricule').value = matricule;
-  document.getElementById('studentLoginPassword').value = password;
-  setTimeout(()=>submitStudentLogin(), 50);
 }
 
 async function submitStudentLogin(){
@@ -88,16 +75,13 @@ async function submitStudentLogin(){
     startSharedSync();
     return;
   } catch (err) {
-    // repli comptes locaux / démo
+    // repli comptes locaux (session navigateur)
   }
 
-  let account = Object.values(registeredAccounts.etudiant).find(s=>s.matricule===matricule && s.password===password);
-  if(!account && users.etudiant.matricule===matricule && users.etudiant.password===password){
-    account = users.etudiant;
-  }
+  const account = Object.values(registeredAccounts.etudiant).find(s=>s.matricule===matricule && s.password===password);
 
   if(!account){
-    showToast('❌ Matricule ou mot de passe incorrect');
+    showToast('❌ Matricule ou mot de passe incorrect — créez un compte si nécessaire');
     return;
   }
 

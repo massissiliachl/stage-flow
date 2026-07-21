@@ -15,8 +15,9 @@ function openSignModal() {
   closeOverlay('conventionModal');
   const modal = document.getElementById('signModal');
   modal.style.display = 'flex';
-  const convId = state.openConventionId || 1;
-  const conv = conventions.find(c=>c.id===convId) || conventions[0];
+  const convId = state.openConventionId;
+  const conv = convId ? conventions.find(c=>c.id===convId) : null;
+  if (!conv) { showToast('⚠️ Aucune convention sélectionnée'); return; }
   const roleNames = { entreprise:`${conv.company} — Représentant entreprise`, universite:'Pr. Soualmia Abderrahmane — Doyenne (Chef de doyennat)' };
   document.getElementById('signModalSub').textContent = `Convention ${conv.reference || ('SF-2026-0' + (conv.id + 46))} · Signataire : ${roleNames[state.role]||''}`;
   currentSignTab = 'draw';
@@ -135,9 +136,9 @@ async function confirmSignature() {
 }
 
 async function saveSignature(type, data, text) {
-  const targetConvId = state.openConventionId || 1;
-  const conv = conventions.find(c=>c.id===targetConvId);
-  if (!conv) return;
+  const targetConvId = state.openConventionId;
+  const conv = targetConvId ? conventions.find(c=>c.id===targetConvId) : null;
+  if (!conv) { showToast('⚠️ Aucune convention sélectionnée'); return; }
 
   const sigPayload = { type, data, text };
 
@@ -175,7 +176,6 @@ async function saveSignature(type, data, text) {
   const hash = await computeLocalSignatureHash(targetConvId, state.role, documentSeed, type, signatureContent);
   const sigData = { type, data, text, date: dateStr, signedAt, hash, documentHash: documentSeed, algorithm: 'SHA-256' };
 
-  if(targetConvId === 1) state.signatures[state.role] = sigData;
   conv.signatures = conv.signatures || {};
   conv.signatures[state.role] = sigData;
   conv.documentHash = documentSeed;

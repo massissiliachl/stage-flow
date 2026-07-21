@@ -22,10 +22,6 @@
     return;
   }
   loadCompaniesFromDb().finally(function(){
-    if (new URLSearchParams(window.location.search).get('register')) {
-      openStudentRegisterModal();
-    } else {
-      openStudentLoginModal();
-    }
+    openStudentRegisterModal();
   });
 })();

@@ -2,7 +2,7 @@
 // PAGES
 // ══════════════════════════════════
 function getPageHTML(id) {
-  const u = (state.role==='etudiant' ? state.user : null) || users.etudiant;
+  const u = etuOrEmpty();
   const pages = {
 
 'dashboard':`
@@ -120,7 +120,7 @@ function getPageHTML(id) {
   <h2>📋 Mes demandes de stage</h2>
   <p>Suivez l'état de toutes vos candidatures</p>
 </div>
-${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name || (!d.studentName && u===users.etudiant));
+${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name);
   const accepted = myDemandes.find(d=>d.status==='accepted'); const pendingCount = myDemandes.filter(d=>d.status==='pending').length;
   if(!accepted || !pendingCount) return '';
   return `
@@ -142,7 +142,7 @@ ${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name || (
     <table>
       <thead><tr><th>Entreprise</th><th>Thème proposé</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
-        ${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name || (!d.studentName && u===users.etudiant));
+        ${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name);
           if(!myDemandes.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune candidature envoyée pour le moment</td></tr>';
           return myDemandes.map(d=>{
             const matchingConv = conventions.find(c=>c.fromDb && (c.etudiant||'')===u.name && (c.company===d.company || (d.entrepriseId && c.entrepriseId===d.entrepriseId)))
@@ -198,12 +198,9 @@ ${(()=>{
 </div>`;
   }
 
-  const useLocalDemo = myConv && myConv.id===1 && !myConv.fromDb && u===users.etudiant;
-  const sigCount = useLocalDemo
-    ? [state.signatures.entreprise,state.signatures.universite].filter(Boolean).length
-    : [myConv.signed_entreprise,myConv.signed_univ].filter(Boolean).length;
-  const sigEnt = useLocalDemo ? state.signatures.entreprise : myConv.signed_entreprise;
-  const sigUniv = useLocalDemo ? state.signatures.universite : myConv.signed_univ;
+  const sigCount = [myConv.signed_entreprise,myConv.signed_univ].filter(Boolean).length;
+  const sigEnt = myConv.signed_entreprise;
+  const sigUniv = myConv.signed_univ;
   const convRef = myConv.reference || ('SF-2026-0'+(myConv.id+46));
   const isSignedInDb = !!(myConv.fromDb && myConv.signed_entreprise && myConv.signed_univ);
 
@@ -214,7 +211,7 @@ ${isSignedInDb ? '<div class="card mb16" style="border-left:4px solid var(--succ
     <div class="card-title">Informations de la convention</div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${infoRow('Référence', convRef)}
-      ${infoRow('Étudiante', u.binome ? `${u.name} & ${u.binome.name}` : u.name)}
+      ${infoRow('Étudiante', formatStudentGroupLabel(u))}
       ${infoRow('Spécialité', u.specialty || myConv.studentSpecialty || '—')}
       ${infoRow('Entreprise d\'accueil', myConv.company)}
       ${infoRow('Encadrant entreprise', myConv.encadrant_entreprise || '—')}
@@ -455,18 +452,29 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
 </div>`,
 
 'ent-stagiaires':`
-<div class="page-header"><h2>👥 Stagiaires actifs — Cevital</h2></div>
+<div class="page-header"><h2>👥 Stagiaires actifs — ${state.user.company||state.user.name||'Entreprise'}</h2></div>
 <div class="grid-2 gap16">
-  <div class="card">
+  ${(() => {
+    const company = state.user.company || state.user.name;
+    const mine = conventions.filter(c => c.company === company || (c.entrepriseId && state.user.entrepriseId && c.entrepriseId === state.user.entrepriseId));
+    if (!mine.length) {
+      return '<div class="card"><div class="empty-state" style="padding:24px"><div class="ico">👥</div><p class="text-sm text-muted">Aucun stagiaire actif pour le moment</p></div></div>';
+    }
+    return mine.map(c => {
+      const initials = (c.etudiant || 'ET').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+      const sigN = [c.signed_entreprise, c.signed_univ].filter(Boolean).length;
+      return `<div class="card">
     <div class="flex items-center gap12 mb12">
-      <div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;color:var(--navy)">DN</div>
-      <div><div class="font-syne" style="font-size:14px">Djatout Nour El Houda</div><div class="text-xs text-muted">Master Comm. & RP — Univ. Béjaïa</div></div>
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;color:var(--navy)">${initials}</div>
+      <div><div class="font-syne" style="font-size:14px">${c.etudiant}</div><div class="text-xs text-muted">${c.faculte || '—'} · ${c.departement || '—'}</div></div>
     </div>
-    <div class="text-sm mb8">Usage de l'IA dans la comm. commerciale</div>
-    <div class="text-xs text-muted mb10">01 Fév → 31 Mar 2026</div>
-    <div class="flex justify-between mb6"><span class="text-xs text-muted">Convention</span><span class="text-xs text-muted">En attente signature</span></div>
-    <div class="progress-wrap"><div class="progress-bar" style="width:0%;background:var(--border)"></div></div>
-  </div>
+    <div class="text-sm mb8">${c.theme || '—'}</div>
+    <div class="text-xs text-muted mb10">${c.periode || '—'}</div>
+    <div class="flex justify-between mb6"><span class="text-xs text-muted">Convention</span><span class="text-xs text-muted">${sigN}/2 signatures</span></div>
+    <div class="progress-wrap"><div class="progress-bar" style="width:${Math.round(sigN/2*100)}%"></div></div>
+  </div>`;
+    }).join('');
+  })()}
 </div>`,
 
 'ent-profil':`
