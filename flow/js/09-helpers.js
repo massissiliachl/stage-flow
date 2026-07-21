@@ -64,6 +64,7 @@ function saveProfile(){
   const promo = document.getElementById('profilePromo')?.value.trim();
   const univ  = document.getElementById('profileUniversity')?.value.trim();
   const email = document.getElementById('profileEmail')?.value.trim();
+  const encadrant = document.getElementById('profileEncadrant')?.value.trim();
   const theme = document.getElementById('profileTheme')?.value.trim();
 
   if(name)  { u.name      = name; state.user.name = name; }
@@ -71,6 +72,7 @@ function saveProfile(){
   if(promo) { u.promo     = promo; state.user.promo = promo; }
   if(univ)  { u.university= univ; state.user.university = univ; }
   if(email) { u.email     = email; state.user.email = email; }
+  if(encadrant) { u.encadrant = encadrant; state.user.encadrant = encadrant; }
   if(theme) { u.theme     = theme; state.user.theme = theme; }
 
   // Met à jour l'avatar et le nom dans la topbar
@@ -211,8 +213,8 @@ function buildNotifList(){
         icon: n.conventionGenerated ? '📄' : '🔔',
         color: n.conventionGenerated ? '#D1FAE5' : '#FFF3CD',
         text: n.conventionGenerated
-          ? `Convention générée — ${n.studentLabel} × ${n.company} (SF-2026-0${(n.generatedConventionId||0)+46})`
-          : `Nouvel accord : ${n.studentLabel} × ${n.company} — cliquez pour générer la convention`,
+          ? `Convention créée automatiquement — ${n.studentLabel} × ${n.company}${n.conventionReference ? ' ('+n.conventionReference+')' : ''}`
+          : `Nouvel accord : ${n.studentLabel} × ${n.company}`,
         time: 'Temps réel',
         read: n.conventionGenerated
       }));
@@ -342,8 +344,62 @@ function accepterDemande(n){
   refreshCurrentView();
 }
 
+function escapeHtmlAttr(value) {
+  return String(value || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+// Ouvre la modale pour désigner l'encadrant entreprise avant acceptation
+function openAcceptDemandeModal(demandeId) {
+  const d = demandes.find(x => x.id === demandeId);
+  if (!d) { showToast('⚠️ Demande introuvable'); return; }
+  if (d.status !== 'pending') { showToast('ℹ️ Cette demande a déjà été traitée'); return; }
+
+  state.pendingAcceptDemandeId = demandeId;
+  const defaultEnc = state.user?.encadrant_stage || state.user?.encadrant_ent || '';
+  const modal = document.getElementById('childAccountModal');
+  const title = document.getElementById('childAccountModalTitle');
+  const content = document.getElementById('childAccountModalContent');
+  if (!modal || !content) {
+    accepterDemandeById(demandeId, defaultEnc);
+    return;
+  }
+
+  if (title) title.textContent = '✅ Accepter la candidature';
+  content.innerHTML = `
+    <p class="text-sm text-muted mb16">Indiquez l'encadrant entreprise. Dès validation, la demande est acceptée et la convention est créée automatiquement.</p>
+    <div style="background:var(--bg2);border-radius:var(--r2);padding:12px 14px;margin-bottom:14px">
+      <div class="text-sm"><strong>${d.studentLabel || d.studentName || '—'}</strong></div>
+      <div class="text-xs text-muted mt4">${d.theme || '—'}</div>
+      ${d.duree ? `<div class="text-xs text-muted">Durée : ${d.duree}</div>` : ''}
+    </div>
+    <div class="form-group">
+      <label class="form-label">Encadrant entreprise *</label>
+      <input id="acceptDemandeEncadrant" class="form-input" value="${escapeHtmlAttr(defaultEnc)}" placeholder="Ex: M. Hamouchi — Directeur Marketing">
+    </div>
+    <p class="text-xs text-muted">Cet encadrant sera mentionné sur la convention de stage.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeOverlay('childAccountModal')">Annuler</button>
+      <button class="btn btn-success" onclick="submitAcceptDemande()">✓ Accepter</button>
+    </div>`;
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('acceptDemandeEncadrant')?.focus(), 100);
+}
+
+async function submitAcceptDemande() {
+  const demandeId = state.pendingAcceptDemandeId;
+  const encadrant = (document.getElementById('acceptDemandeEncadrant')?.value || '').trim();
+  if (!demandeId) return;
+  if (!encadrant) {
+    showToast('⚠️ L\'encadrant entreprise est obligatoire pour accepter la demande');
+    return;
+  }
+  closeOverlay('childAccountModal');
+  state.pendingAcceptDemandeId = null;
+  await accepterDemandeById(demandeId, encadrant);
+}
+
 // Accepte une demande précise par son id — enregistre en base + convention auto
-async function accepterDemandeById(demandeId){
+async function accepterDemandeById(demandeId, encadrant){
   const d = demandes.find(x=>x.id===demandeId);
   if(!d){ showToast('⚠️ Demande introuvable'); return; }
 
@@ -353,23 +409,32 @@ async function accepterDemandeById(demandeId){
     return;
   }
 
+  const enc = (encadrant || '').trim();
+  if (!enc) {
+    openAcceptDemandeModal(demandeId);
+    return;
+  }
+
   try {
     const data = await apiJson('/api/demandes/' + demandeId + '/accept', {
       method: 'PATCH',
       body: JSON.stringify({
         entrepriseId: entId,
-        encadrant: state.user.encadrant_stage || state.user.encadrant_ent || '',
+        encadrant: enc,
       }),
     });
     mergeDemandeFromApi(demandeId, data.demande);
     mergeConventionFromApi(data.convention);
     persistDemandeState(demandeId);
-    notifyUniversityOfAccord(data.demande);
+    await notifyUniversityOfAccord(data.demande, data.convention);
     const ref = data.convention && data.convention.reference ? data.convention.reference : '';
     showToast(ref
-      ? `✅ Demande acceptée — convention ${ref} créée en base`
-      : `✅ Accord avec ${data.demande.studentLabel||data.demande.studentName}`);
+      ? `✅ Candidature acceptée — convention ${ref} créée automatiquement`
+      : `✅ Candidature acceptée — ${data.demande.studentLabel||data.demande.studentName}`);
     refreshCurrentView();
+    if (data.convention && data.convention.id) {
+      setTimeout(() => openConventionById(data.convention.id), 400);
+    }
   } catch (err) {
     showToast('❌ ' + (err.message || 'Acceptation impossible'));
   }
@@ -400,13 +465,15 @@ async function refuserDemandeById(demandeId){
   }
 }
 
-// Crée une notification côté université lorsqu'un accord étudiant/entreprise est trouvé
-async function notifyUniversityOfAccord(demande){
-  // Utilise les données de l'étudiant propriétaire de la demande (et non le compte connecté,
-  // car cette fonction est appelée depuis le contexte "entreprise")
+// Notifie l'université lorsqu'un accord étudiant/entreprise est trouvé (convention déjà créée si apiConvention)
+async function notifyUniversityOfAccord(demande, apiConvention){
   const studentName  = demande.studentName;
   const studentLabel = demande.studentLabel || studentName;
   const studentProfile = Object.values(registeredAccounts.etudiant).find(s=>s.name===studentName) || null;
+  const conv = apiConvention || null;
+  if (conv && typeof mergeConventionFromApi === 'function') {
+    mergeConventionFromApi(conv);
+  }
   const notif = {
     id: 'accord-'+demande.id+'-'+Date.now(),
     demandeId: demande.id,
@@ -419,10 +486,12 @@ async function notifyUniversityOfAccord(demande){
     company: demande.company,
     theme: demande.theme,
     encadrantEntreprise: demande.encadrant || ent().encadrant_stage || '',
-    faculte: 'Faculté SHS',
-    departement: 'Département SIC',
-    conventionGenerated: false,
-    read: false
+    faculte: demande.faculte || studentProfile?.faculte || 'Faculté SHS',
+    departement: demande.departement || studentProfile?.dept || studentProfile?.departement || 'Département SIC',
+    conventionGenerated: !!(conv && conv.id),
+    generatedConventionId: conv && conv.id ? conv.id : null,
+    conventionReference: conv && conv.reference ? conv.reference : null,
+    read: !!(conv && conv.id),
   };
   sharedData.universityNotifications = sharedData.universityNotifications || [];
   sharedData.universityNotifications.push(notif);
@@ -843,4 +912,400 @@ function downloadGenericDocument(name){
 }
 
 function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
+
+// ──────────────────────────────────
+// RAPPORT DE STAGE (fin de période)
+// ──────────────────────────────────
+function parseStageDurationMonths(text) {
+  const t = String(text || '').toLowerCase();
+  const match = t.match(/(\d+)\s*mois/);
+  if (match) return parseInt(match[1], 10);
+  return 2;
+}
+
+function formatStageDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) { return iso; }
+}
+
+function isStagePeriodEnded(conv) {
+  if (!conv) return false;
+  if (!conv.signed_entreprise || !conv.signed_univ) return false;
+  if (conv.dateFin || conv.date_fin) {
+    const fin = conv.dateFin || conv.date_fin;
+    const end = new Date(String(fin).slice(0, 10) + 'T23:59:59');
+    return new Date() >= end;
+  }
+  const months = parseStageDurationMonths(conv.periode || conv.duree || '2 mois');
+  const startRaw = conv.dateDebut || conv.date_debut;
+  if (startRaw) {
+    const start = new Date(String(startRaw).slice(0, 10) + 'T12:00:00');
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + months);
+    return new Date() >= end;
+  }
+  return false;
+}
+
+function getStudentStageReport(conv) {
+  if (!conv || !conv.id) return null;
+  return state.stageReports && state.stageReports[conv.id] ? state.stageReports[conv.id] : null;
+}
+
+function openSubmitRapportModal(convId) {
+  const conv = conventions.find(c => c.id === convId);
+  const u = etu();
+  if (!conv || !u) { showToast('⚠️ Convention introuvable'); return; }
+  if (!isStagePeriodEnded(conv)) {
+    const fin = conv.dateFin || conv.date_fin;
+    showToast(fin ? `⏳ Dépôt possible à partir du ${formatStageDate(fin)}` : '⏳ Le stage n\'est pas encore terminé');
+    return;
+  }
+  if (getStudentStageReport(conv)) {
+    showToast('ℹ️ Rapport déjà déposé pour ce stage');
+    return;
+  }
+
+  state.pendingRapportConvId = convId;
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (title) title.textContent = '📝 Déposer mon rapport de stage';
+  content.innerHTML = `
+    <p class="text-sm text-muted mb12">Stage chez <strong>${conv.company}</strong> — convention ${conv.reference || ('SF-2026-0' + (conv.id + 46))}</p>
+    <div class="form-group"><label class="form-label">Titre du rapport *</label><input id="rapportTitle" class="form-input" value="${(u.theme || 'Rapport de stage PFE').replace(/"/g, '&quot;')}"></div>
+    <div class="form-group"><label class="form-label">Résumé (optionnel)</label><input id="rapportSummary" class="form-input" placeholder="Synthèse en une phrase"></div>
+    <div class="form-group"><label class="form-label">Contenu du rapport *</label><textarea id="rapportContent" class="form-textarea" rows="10" placeholder="Introduction, missions réalisées, compétences acquises, conclusion…"></textarea></div>
+    <div class="form-group"><label class="form-label">Nom du fichier PDF (optionnel)</label><input id="rapportFileName" class="form-input" placeholder="Ex: rapport_pfe_benali.pdf"></div>
+    <p class="text-xs text-muted">Le rapport sera transmis à l'entreprise <strong>${conv.company}</strong> et archivé dans votre dossier.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
+      <button class="btn btn-cyan" onclick="submitStageReport()">📤 Déposer le rapport</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+async function submitStageReport() {
+  const convId = state.pendingRapportConvId;
+  const u = etu();
+  if (!convId || !u) return;
+
+  const title = (document.getElementById('rapportTitle')?.value || '').trim();
+  const summary = (document.getElementById('rapportSummary')?.value || '').trim();
+  const content = (document.getElementById('rapportContent')?.value || '').trim();
+  const fileName = (document.getElementById('rapportFileName')?.value || '').trim();
+
+  if (!title || !content) {
+    showToast('⚠️ Titre et contenu du rapport obligatoires');
+    return;
+  }
+  if (content.length < 100) {
+    showToast('⚠️ Le rapport doit contenir au minimum 100 caractères');
+    return;
+  }
+
+  try {
+    const data = await apiJson('/api/rapports/' + convId, {
+      method: 'POST',
+      body: JSON.stringify({
+        studentName: u.name,
+        studentId: u.id || null,
+        title,
+        summary,
+        content,
+        fileName,
+      }),
+    });
+    state.stageReports[convId] = data.report;
+    if (data.report && typeof mergeConventionFromApi === 'function') {
+      const conv = conventions.find(c => c.id === convId);
+      if (conv) conv.status = 'archived';
+    }
+    closeOverlay('demandeModal');
+    state.pendingRapportConvId = null;
+    showToast('✅ Rapport déposé — visible par ' + (data.report.entrepriseNom || 'l\'entreprise'));
+    refreshCurrentView();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Dépôt impossible'));
+  }
+}
+
+function openRapportViewModal(report) {
+  if (!report) return;
+  state.pendingRapportView = report;
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (title) title.textContent = '📝 Rapport de stage — ' + report.studentName;
+  const safeContent = String(report.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  content.innerHTML = `
+    <div class="text-xs text-muted mb12">${report.entrepriseNom || '—'} · Déposé le ${formatStageDate(report.submittedAt)}</div>
+    <div class="form-group"><label class="form-label">Titre</label><div class="form-input" style="background:var(--bg2)">${report.title}</div></div>
+    ${report.summary ? `<div class="form-group"><label class="form-label">Résumé</label><div class="form-input" style="background:var(--bg2)">${report.summary}</div></div>` : ''}
+    <div class="form-group"><label class="form-label">Contenu</label><div class="form-textarea" style="background:var(--bg2);min-height:200px;white-space:pre-wrap">${safeContent}</div></div>
+    ${report.fileName ? `<p class="text-xs text-muted">Fichier associé : ${report.fileName}</p>` : ''}
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function openRapportViewById(reportId) {
+  const report = (state.entrepriseRapports || []).find(r => r.id === reportId)
+    || Object.values(state.stageReports || {}).find(r => r.id === reportId);
+  openRapportViewModal(report);
+}
+
+function openRapportViewByConv(convId) {
+  openRapportViewModal(getStudentStageReport({ id: convId }));
+}
+
+// ──────────────────────────────────
+// ATTESTATION DE STAGE (modèle pré-rempli)
+// ──────────────────────────────────
+function buildAttestationTemplateLocal(conv, u) {
+  const cached = state.stageAttestationTemplates && state.stageAttestationTemplates[conv.id];
+  if (cached) return cached;
+  return {
+    studentName: u.name || conv.etudiant,
+    matricule: u.matricule || conv.studentMatricule || '',
+    specialty: u.specialty || conv.studentSpecialty || conv.departement || '',
+    university: u.university || conv.studentUniversity || 'Université Abderrahmane Mira — Béjaïa',
+    faculte: conv.faculte || u.faculte || '',
+    departement: conv.departement || u.departement || '',
+    promotion: u.promo || conv.studentPromotion || '',
+    encadrantUniversitaire: u.encadrant || conv.studentEncadrant || '',
+    theme: conv.theme || u.theme || '',
+    periode: conv.periode || '',
+    dateDebut: conv.dateDebut || conv.date_debut || null,
+    dateFin: conv.dateFin || conv.date_fin || null,
+    conventionRef: conv.reference || ('SF-2026-0' + (conv.id + 46)),
+    entrepriseNom: conv.company || conv.entreprise_nom || '',
+    entrepriseAdresse: conv.entrepriseAdresse || '',
+    encadrantEntreprise: conv.encadrant_entreprise || '—',
+  };
+}
+
+function getStudentStageAttestation(conv) {
+  if (!conv || !conv.id) return null;
+  return state.stageAttestations && state.stageAttestations[conv.id] ? state.stageAttestations[conv.id] : null;
+}
+
+function attestationPrefilledFieldsHtml(t) {
+  const esc = (v) => String(v || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `
+    <div class="grid-2 gap12 mb12">
+      <div class="form-group"><label class="form-label">Étudiant(e)</label><div class="form-input" style="background:var(--bg2)">${esc(t.studentName)}</div></div>
+      <div class="form-group"><label class="form-label">Matricule</label><div class="form-input" style="background:var(--bg2)">${esc(t.matricule)}</div></div>
+      <div class="form-group"><label class="form-label">Spécialité</label><div class="form-input" style="background:var(--bg2)">${esc(t.specialty)}</div></div>
+      <div class="form-group"><label class="form-label">Promotion</label><div class="form-input" style="background:var(--bg2)">${esc(t.promotion)}</div></div>
+      <div class="form-group"><label class="form-label">Université</label><div class="form-input" style="background:var(--bg2)">${esc(t.university)}</div></div>
+      <div class="form-group"><label class="form-label">Faculté / Département</label><div class="form-input" style="background:var(--bg2)">${esc(t.faculte)} · ${esc(t.departement)}</div></div>
+      <div class="form-group"><label class="form-label">Entreprise d'accueil</label><div class="form-input" style="background:var(--bg2)">${esc(t.entrepriseNom)}</div></div>
+      <div class="form-group"><label class="form-label">Encadrant entreprise</label><div class="form-input" style="background:var(--bg2)">${esc(t.encadrantEntreprise)}</div></div>
+      <div class="form-group"><label class="form-label">Encadrant universitaire</label><div class="form-input" style="background:var(--bg2)">${esc(t.encadrantUniversitaire)}</div></div>
+      <div class="form-group"><label class="form-label">Thème du stage</label><div class="form-input" style="background:var(--bg2)">${esc(t.theme)}</div></div>
+      <div class="form-group"><label class="form-label">Période</label><div class="form-input" style="background:var(--bg2)">${esc(t.periode)}${t.dateDebut ? ' · Du ' + formatStageDate(t.dateDebut) : ''}${t.dateFin ? ' au ' + formatStageDate(t.dateFin) : ''}</div></div>
+      <div class="form-group"><label class="form-label">Réf. convention</label><div class="form-input" style="background:var(--bg2)">${esc(t.conventionRef)}</div></div>
+    </div>`;
+}
+
+function buildAttestationPdfHtml(att, template) {
+  const t = template || att.prefilled || {};
+  const esc = (v) => String(v || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const missions = att ? att.missions : '';
+  const competences = att ? att.competences : '';
+  const commentaire = att ? att.commentaire : '';
+  return `
+    <div class="pdf-header">
+      <div class="uni-name">${esc(t.university)}</div>
+      <div class="doc-title">Attestation de stage</div>
+      <div class="doc-ref">${esc(t.conventionRef)} · ${new Date().toLocaleDateString('fr-DZ')}</div>
+    </div>
+    <div class="pdf-section">
+      <h4>Identité du stagiaire</h4>
+      <div class="pdf-field"><label>Nom et prénom :</label><div class="val">${esc(t.studentName)}</div></div>
+      <div class="pdf-field"><label>Matricule :</label><div class="val">${esc(t.matricule)}</div></div>
+      <div class="pdf-field"><label>Spécialité :</label><div class="val">${esc(t.specialty)}</div></div>
+      <div class="pdf-field"><label>Faculté / Département :</label><div class="val">${esc(t.faculte)} · ${esc(t.departement)}</div></div>
+      <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">${esc(t.encadrantUniversitaire)}</div></div>
+    </div>
+    <div class="pdf-section">
+      <h4>Stage en entreprise</h4>
+      <div class="pdf-field"><label>Organisme d'accueil :</label><div class="val">${esc(t.entrepriseNom)}</div></div>
+      <div class="pdf-field"><label>Encadrant entreprise :</label><div class="val">${esc(t.encadrantEntreprise)}</div></div>
+      <div class="pdf-field"><label>Thème :</label><div class="val">${esc(t.theme)}</div></div>
+      <div class="pdf-field"><label>Période :</label><div class="val">${esc(t.periode)}${t.dateDebut ? ' — du ' + formatStageDate(t.dateDebut) : ''}${t.dateFin ? ' au ' + formatStageDate(t.dateFin) : ''}</div></div>
+    </div>
+    <div class="pdf-section">
+      <h4>Missions réalisées</h4>
+      <p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(missions || '—')}</p>
+    </div>
+    <div class="pdf-section">
+      <h4>Compétences acquises</h4>
+      <p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(competences || '—')}</p>
+    </div>
+    ${commentaire ? `<div class="pdf-section"><h4>Commentaire du stagiaire</h4><p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(commentaire)}</p></div>` : ''}
+    <div class="pdf-section" style="margin-top:24px">
+      <div class="pdf-field"><label>Fait à Béjaïa, le :</label><div class="val">${new Date().toLocaleDateString('fr-FR')}</div></div>
+      <div class="pdf-field"><label>Signature du stagiaire :</label><div class="val">_________________________</div></div>
+      <div class="pdf-field"><label>Cachet et signature entreprise :</label><div class="val">_________________________</div></div>
+    </div>`;
+}
+
+function openAttestationPreviewModal(convId) {
+  const conv = conventions.find(c => c.id === convId);
+  const u = etu();
+  if (!conv || !u) { showToast('⚠️ Convention introuvable'); return; }
+  if (!conv.signed_entreprise || !conv.signed_univ) {
+    showToast('⏳ Attestation disponible après signature de la convention');
+    return;
+  }
+  const t = buildAttestationTemplateLocal(conv, u);
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (title) title.textContent = '📋 Attestation de stage — modèle pré-rempli';
+  content.innerHTML = `
+    <p class="text-sm text-muted mb12">Les champs ci-dessous sont pré-remplis depuis votre convention. Complétez et envoyez à la fin du stage.</p>
+    ${attestationPrefilledFieldsHtml(t)}
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
+      <button class="btn btn-ghost" onclick="downloadAttestationTemplatePdf(${convId})">⬇ Télécharger le modèle</button>
+      ${isStagePeriodEnded(conv) && !getStudentStageAttestation(conv) ? `<button class="btn btn-cyan" onclick="openSubmitAttestationModal(${convId})">✏️ Compléter et envoyer</button>` : ''}
+    </div>`;
+  modal.classList.add('open');
+}
+
+function openSubmitAttestationModal(convId) {
+  const conv = conventions.find(c => c.id === convId);
+  const u = etu();
+  if (!conv || !u) { showToast('⚠️ Convention introuvable'); return; }
+  if (!isStagePeriodEnded(conv)) {
+    const fin = conv.dateFin || conv.date_fin;
+    showToast(fin ? `⏳ Envoi possible à partir du ${formatStageDate(fin)}` : '⏳ Le stage n\'est pas encore terminé');
+    return;
+  }
+  if (getStudentStageAttestation(conv)) {
+    showToast('ℹ️ Attestation déjà envoyée pour ce stage');
+    return;
+  }
+  state.pendingAttestationConvId = convId;
+  const t = buildAttestationTemplateLocal(conv, u);
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (title) title.textContent = '📋 Compléter mon attestation de stage';
+  content.innerHTML = `
+    <p class="text-sm text-muted mb12">Stage chez <strong>${conv.company}</strong> — les informations administratives sont déjà pré-remplies.</p>
+    ${attestationPrefilledFieldsHtml(t)}
+    <div class="form-group"><label class="form-label">Missions réalisées *</label><textarea id="attestationMissions" class="form-textarea" rows="5" placeholder="Décrivez les principales missions confiées et réalisées durant le stage…"></textarea></div>
+    <div class="form-group"><label class="form-label">Compétences acquises *</label><textarea id="attestationCompetences" class="form-textarea" rows="4" placeholder="Techniques, méthodologiques, relationnelles…"></textarea></div>
+    <div class="form-group"><label class="form-label">Commentaire (optionnel)</label><textarea id="attestationCommentaire" class="form-textarea" rows="2" placeholder="Appréciation globale du stage"></textarea></div>
+    <p class="text-xs text-muted">L'attestation sera transmise à <strong>${conv.company}</strong> et téléchargeable en PDF.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
+      <button class="btn btn-cyan" onclick="submitStageAttestation()">📤 Envoyer à l'entreprise</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+async function submitStageAttestation() {
+  const convId = state.pendingAttestationConvId;
+  const u = etu();
+  if (!convId || !u) return;
+
+  const missions = (document.getElementById('attestationMissions')?.value || '').trim();
+  const competences = (document.getElementById('attestationCompetences')?.value || '').trim();
+  const commentaire = (document.getElementById('attestationCommentaire')?.value || '').trim();
+
+  if (!missions || !competences) {
+    showToast('⚠️ Missions et compétences sont obligatoires');
+    return;
+  }
+  if (missions.length < 50) {
+    showToast('⚠️ Décrivez les missions réalisées (minimum 50 caractères)');
+    return;
+  }
+  if (competences.length < 30) {
+    showToast('⚠️ Décrivez les compétences acquises (minimum 30 caractères)');
+    return;
+  }
+
+  try {
+    const data = await apiJson('/api/attestations/' + convId, {
+      method: 'POST',
+      body: JSON.stringify({
+        studentName: u.name,
+        studentId: u.id || null,
+        missions,
+        competences,
+        commentaire,
+      }),
+    });
+    state.stageAttestations[convId] = data.attestation;
+    closeOverlay('demandeModal');
+    state.pendingAttestationConvId = null;
+    showToast('✅ Attestation envoyée — ' + (data.attestation.entrepriseNom || 'entreprise'));
+    refreshCurrentView();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Envoi impossible'));
+  }
+}
+
+function openAttestationViewModal(att) {
+  if (!att) return;
+  const t = att.prefilled || {};
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (title) title.textContent = '📋 Attestation de stage — ' + att.studentName;
+  const safeMissions = String(att.missions || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeComp = String(att.competences || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  content.innerHTML = `
+    <div class="text-xs text-muted mb12">${att.entrepriseNom || '—'} · Envoyée le ${formatStageDate(att.submittedAt)}</div>
+    ${attestationPrefilledFieldsHtml(t)}
+    <div class="form-group"><label class="form-label">Missions réalisées</label><div class="form-textarea" style="background:var(--bg2);min-height:120px;white-space:pre-wrap">${safeMissions}</div></div>
+    <div class="form-group"><label class="form-label">Compétences acquises</label><div class="form-textarea" style="background:var(--bg2);min-height:80px;white-space:pre-wrap">${safeComp}</div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
+      <button class="btn btn-cyan" onclick="downloadAttestationPdfByConv(${att.conventionId})">⬇ Télécharger PDF</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function openAttestationViewById(attId) {
+  const att = (state.entrepriseAttestations || []).find(a => a.id === attId)
+    || Object.values(state.stageAttestations || {}).find(a => a.id === attId);
+  openAttestationViewModal(att);
+}
+
+function openAttestationViewByConv(convId) {
+  openAttestationViewModal(getStudentStageAttestation({ id: convId }));
+}
+
+function downloadAttestationPdfByConv(convId) {
+  const att = getStudentStageAttestation({ id: convId })
+    || (state.entrepriseAttestations || []).find(a => a.conventionId === convId);
+  if (!att) { showToast('⚠️ Attestation introuvable'); return; }
+  const t = att.prefilled || {};
+  const slug = (att.studentName || 'stagiaire').replace(/\s+/g, '-');
+  const filename = `Attestation-stage-${slug}.pdf`;
+  showToast('⏳ Génération du PDF en cours...');
+  generatePdfFromElement(buildAttestationPdfHtml(att, t), filename, filename);
+}
+
+function downloadAttestationTemplatePdf(convId) {
+  const conv = conventions.find(c => c.id === convId);
+  const u = etuOrEmpty();
+  if (!conv) { showToast('⚠️ Convention introuvable'); return; }
+  const t = buildAttestationTemplateLocal(conv, u);
+  const draft = { missions: '(À compléter par le stagiaire)', competences: '(À compléter par le stagiaire)', commentaire: '' };
+  const filename = `Modele-attestation-${(t.studentName || 'stage').replace(/\s+/g, '-')}.pdf`;
+  showToast('⏳ Génération du PDF en cours...');
+  generatePdfFromElement(buildAttestationPdfHtml(draft, t), filename, filename);
+}
+
 function openAbout(){ document.getElementById('aboutModal').classList.add('open'); }

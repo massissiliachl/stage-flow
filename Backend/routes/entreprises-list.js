@@ -484,7 +484,7 @@ conventionsRouter.get('/', async (req, res) => {
     const result = await pool.query(
       `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
               signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-              document_hash, final_integrity_hash, hash_algorithm
+              document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
        FROM conventions
        WHERE student_name = $1
        ORDER BY id DESC`,
@@ -538,7 +538,7 @@ conventionsRouter.get('/:conventionId', async (req, res) => {
     const result = await pool.query(
       `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
               signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-              document_hash, final_integrity_hash, hash_algorithm
+              document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
        FROM conventions WHERE id = $1`,
       [convId]
     );

@@ -2,6 +2,8 @@ const express = require('express');
 const { getPool } = require('../lib/db');
 const { mapConventionRow } = require('../lib/convention-map');
 const { createOrUpdateConventionForDemand } = require('../lib/convention-service');
+const { mapReportRow } = require('./stage-reports');
+const { mapAttestationRow } = require('./stage-attestations');
 
 const router = express.Router();
 
@@ -291,7 +293,7 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
       pool.query(
         `SELECT id, reference, student_name, entreprise_nom, theme, periode, status,
                 signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-                document_hash, final_integrity_hash, hash_algorithm
+                document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
          FROM conventions
          WHERE entreprise_id = $1
          ORDER BY id DESC`,
@@ -307,6 +309,54 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
   } catch (err) {
     console.error('Dashboard entreprise error:', err.message);
     res.status(500).json({ error: 'Erreur lors du chargement des données' });
+  }
+});
+
+/**
+ * GET /api/entreprise/:entrepriseId/rapports
+ * Rapports de stage déposés par les stagiaires
+ */
+router.get('/:entrepriseId/rapports', async (req, res) => {
+  const entrepriseId = parseInt(req.params.entrepriseId, 10);
+  if (!entrepriseId || Number.isNaN(entrepriseId)) {
+    return res.status(400).json({ error: 'Identifiant entreprise invalide' });
+  }
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT * FROM stage_reports
+       WHERE entreprise_id = $1
+       ORDER BY submitted_at DESC`,
+      [entrepriseId]
+    );
+    res.json({ rapports: result.rows.map(mapReportRow) });
+  } catch (err) {
+    console.error('Rapports entreprise error:', err.message);
+    res.status(500).json({ error: 'Erreur lors du chargement des rapports' });
+  }
+});
+
+/**
+ * GET /api/entreprise/:entrepriseId/attestations
+ * Attestations de stage envoyées par les stagiaires
+ */
+router.get('/:entrepriseId/attestations', async (req, res) => {
+  const entrepriseId = parseInt(req.params.entrepriseId, 10);
+  if (!entrepriseId || Number.isNaN(entrepriseId)) {
+    return res.status(400).json({ error: 'Identifiant entreprise invalide' });
+  }
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT * FROM stage_attestations
+       WHERE entreprise_id = $1
+       ORDER BY submitted_at DESC`,
+      [entrepriseId]
+    );
+    res.json({ attestations: result.rows.map(mapAttestationRow) });
+  } catch (err) {
+    console.error('Attestations entreprise error:', err.message);
+    res.status(500).json({ error: 'Erreur lors du chargement des attestations' });
   }
 });
 

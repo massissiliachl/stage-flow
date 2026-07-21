@@ -76,6 +76,7 @@ function toFrontendUser(row) {
     departement: row.departement || studentData.departement || studentData.dept || '',
     dept: row.departement || studentData.departement || studentData.dept || '',
     theme: row.theme || studentData.theme || '',
+    encadrant: row.encadrant || studentData.encadrant || '',
     avatar: row.avatar || buildAvatar(row.display_name),
     groupType,
     groupMembers,
@@ -98,6 +99,7 @@ router.post('/register', async (req, res) => {
     university,
     faculte,
     departement,
+    encadrant,
     theme,
     groupType = 'solo',
     groupMembers = [],
@@ -112,9 +114,11 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: groupCheck.error });
   }
 
-  if (!nameTrim || !emailTrim || !matriculeTrim || !password) {
+  const encadrantTrim = (encadrant || '').trim();
+
+  if (!nameTrim || !emailTrim || !matriculeTrim || !password || !encadrantTrim) {
     return res.status(400).json({
-      error: 'Nom, email, matricule et mot de passe sont obligatoires',
+      error: 'Nom, email, matricule, encadrant universitaire et mot de passe sont obligatoires',
     });
   }
 
@@ -153,6 +157,7 @@ router.post('/register', async (req, res) => {
       university: (university || 'Université Abderrahmane Mira — Béjaïa').trim(),
       faculte: (faculte || '').trim(),
       departement: (departement || '').trim(),
+      encadrant: encadrantTrim,
       groupType: normalizedGroupType,
       theme: (theme || '').trim(),
     };
@@ -163,9 +168,9 @@ router.post('/register', async (req, res) => {
     const userResult = await client.query(
       `INSERT INTO users (
          email, login_id, password_hash, role, display_name, avatar,
-         student_data, theme, binome
-       ) VALUES ($1, $2, $3, 'etudiant', $4, $5, $6::jsonb, $7, $8::jsonb)
-       RETURNING id, email, login_id, display_name, avatar, student_data, theme, binome`,
+         student_data, theme, encadrant, binome
+       ) VALUES ($1, $2, $3, 'etudiant', $4, $5, $6::jsonb, $7, $8, $9::jsonb)
+       RETURNING id, email, login_id, display_name, avatar, student_data, theme, encadrant, binome`,
       [
         emailTrim,
         matriculeTrim,
@@ -174,6 +179,7 @@ router.post('/register', async (req, res) => {
         avatar,
         JSON.stringify(studentData),
         studentData.theme || null,
+        encadrantTrim,
         binomePayload ? JSON.stringify(binomePayload) : null,
       ]
     );
@@ -206,6 +212,7 @@ router.post('/register', async (req, res) => {
         avatar: user.avatar,
         student_data: user.student_data,
         theme: user.theme,
+        encadrant: user.encadrant,
         binome: user.binome,
         matricule: matriculeTrim,
         specialty: studentData.specialty,
@@ -246,6 +253,7 @@ router.post('/login', async (req, res) => {
          u.avatar,
          u.student_data,
          u.theme,
+         u.encadrant,
          u.binome,
          u.is_active,
          s.matricule,

@@ -1,5 +1,6 @@
 const { mapConventionRow, buildPartiesSnapshot, parseSignaturesJson } = require('./convention-map');
 const { computeDocumentHash, computeFinalIntegrityHash, HASH_ALGORITHM } = require('./convention-hash');
+const { computeStageDates } = require('./stage-dates');
 
 function resolveConventionPeriode(demand, parties) {
   const duree = (demand.duree || parties?.student?.duree || '').trim();
@@ -30,6 +31,7 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
   const enc = await resolveEncadrant(client, demand, encadrant);
   const parties = await buildPartiesSnapshot(client, demand, enc);
   const periode = resolveConventionPeriode(demand, parties);
+  const { dateDebut, dateFin } = computeStageDates(demand.duree || periode);
 
   const existingConv = await client.query(
     `SELECT * FROM conventions
@@ -50,8 +52,10 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
          faculte = $4,
          departement = $5,
          periode = $6,
-         document_hash = $7,
-         hash_algorithm = $8,
+         date_debut = $7,
+         date_fin = $8,
+         document_hash = $9,
+         hash_algorithm = $10,
          updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -62,6 +66,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
         parties.student.faculte || demand.faculte,
         parties.student.departement || demand.departement,
         periode,
+        dateDebut,
+        dateFin,
         documentHash,
         HASH_ALGORITHM,
       ]
@@ -87,8 +93,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
     `INSERT INTO conventions (
        reference, student_id, student_name, entreprise_id, entreprise_nom,
        theme, periode, status, faculte, departement, is_generated, signatures,
-       document_hash, hash_algorithm
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb, $11, $12)
+       document_hash, hash_algorithm, date_debut, date_fin
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb, $11, $12, $13, $14)
      RETURNING *`,
     [
       reference,
@@ -103,6 +109,8 @@ async function createOrUpdateConventionForDemand(client, demand, encadrant) {
       signaturesPayload,
       documentHash,
       HASH_ALGORITHM,
+      dateDebut,
+      dateFin,
     ]
   );
   return mapConventionRow(convRes.rows[0]);

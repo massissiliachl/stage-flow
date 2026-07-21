@@ -91,6 +91,7 @@ function renderStudentRegisterForm(){
       <div class="form-group"><label class="form-label">Département</label><input id="reg_stu_departement" class="form-input" placeholder="Ex: Sciences de la Communication"></div>
     </div>
     <div class="form-group"><label class="form-label">Université</label><input id="reg_stu_university" class="form-input" value="Université Abderrahmane Mira — Béjaïa"></div>
+    <div class="form-group"><label class="form-label">Encadrant universitaire *</label><input id="reg_stu_encadrant" class="form-input" placeholder="Ex: Dr. Hider Fouzia — Département SIC"></div>
     <div class="form-group"><label class="form-label">Thème PFE (optionnel)</label><input id="reg_stu_theme" class="form-input" placeholder="Ex: Usage de l'IA en communication"></div>
 
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">👥 Modalité du PFE</div>
@@ -181,14 +182,15 @@ async function submitRegisterEtudiant(){
   const faculte = (document.getElementById('reg_stu_faculte')?.value || '').trim();
   const departement = (document.getElementById('reg_stu_departement')?.value || '').trim();
   const university = (document.getElementById('reg_stu_university')?.value || '').trim();
+  const encadrant = (document.getElementById('reg_stu_encadrant')?.value || '').trim();
   const theme = (document.getElementById('reg_stu_theme')?.value || '').trim();
   const pw = document.getElementById('reg_stu_pw')?.value || '';
   const pw2 = document.getElementById('reg_stu_pw2')?.value || '';
   const groupType = document.getElementById('reg_stu_group_type')?.value || 'solo';
   const groupMembers = collectStudentGroupMembers(groupType);
 
-  if (!name || !matricule || !email || !specialty || !pw) {
-    showToast('⚠️ Nom, matricule, email, spécialité et mot de passe sont obligatoires');
+  if (!name || !matricule || !email || !specialty || !encadrant || !pw) {
+    showToast('⚠️ Nom, matricule, email, spécialité, encadrant et mot de passe sont obligatoires');
     return;
   }
   if (pw !== pw2) { showToast('⚠️ Les mots de passe ne correspondent pas'); return; }
@@ -200,7 +202,7 @@ async function submitRegisterEtudiant(){
 
   const payload = {
     name, matricule, email, password: pw, specialty, promo, university,
-    faculte, departement, theme, groupType, groupMembers,
+    faculte, departement, encadrant, theme, groupType, groupMembers,
   };
 
   try {

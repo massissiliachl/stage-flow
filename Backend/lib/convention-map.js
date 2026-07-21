@@ -27,6 +27,8 @@ function mapConventionRow(row) {
     entrepriseId: row.entreprise_id ? Number(row.entreprise_id) : null,
     theme: row.theme || st.theme || '',
     periode: row.periode || st.duree || '',
+    dateDebut: row.date_debut || null,
+    dateFin: row.date_fin || null,
     status: row.status,
     signed_etudiant: Boolean(row.signed_etudiant),
     signed_entreprise: Boolean(row.signed_entreprise),
@@ -42,6 +44,7 @@ function mapConventionRow(row) {
     studentGroupType: st.groupType || (st.binome ? (Array.isArray(st.groupMembers) && st.groupMembers.length > 1 ? 'quadrinome' : 'binome') : 'solo'),
     studentGroupMembers: st.groupMembers || (st.binome && st.binome.name ? [st.binome] : (st.binome && st.binome.members ? st.binome.members : [])),
     studentPromotion: st.promotion || '',
+    studentEncadrant: st.encadrant || '',
     entrepriseNif: ent.nif || '',
     entrepriseNrc: ent.nrc || '',
     entrepriseNis: ent.nis || '',
@@ -114,6 +117,7 @@ async function buildPartiesSnapshot(client, demand, encadrantEnt) {
       faculte: s.faculte || (demand.faculte && !String(demand.faculte).includes('Université') ? demand.faculte : '') || 'Faculté SHS',
       departement: s.departement || demand.departement || sd.dept || '',
       promotion: s.promotion || sd.promo || '',
+      encadrant: s.encadrant || sd.encadrant || '',
       duree: (demand.duree || '').trim() || sd.duree || '2 mois',
       groupType,
       groupMembers,
@@ -124,7 +128,7 @@ async function buildPartiesSnapshot(client, demand, encadrantEnt) {
   const loadStudent = async (userId) => {
     const stuRes = await client.query(
       `SELECT
-         u.email, u.display_name, u.student_data, u.binome, u.theme,
+         u.email, u.display_name, u.student_data, u.binome, u.theme, u.encadrant,
          s.matricule, s.specialty, s.promotion, s.faculte, s.departement
        FROM users u
        LEFT JOIN students s ON s.user_id = u.id

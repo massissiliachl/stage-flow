@@ -28,6 +28,7 @@ function buildConventionPdfHtml(convId, forPdf) {
   const emailEtu = conv.fromDb ? (conv.studentEmail || '—') : (u.email || '—');
   const universiteNom = conv.fromDb ? (conv.studentUniversity || 'Université Abderrahmane Mira — Béjaïa') : (u.university || 'Université Abderrahmane Mira — Béjaïa');
   const encadrantEnt = conv.encadrant_entreprise || '—';
+  const encadrantUniv = conv.fromDb ? (conv.studentEncadrant || '—') : (u.encadrant || '—');
   const docRef = conv.reference || ('SF-2026-0' + (conv.id + 46));
   const faculteLabel = conv.faculte || 'Faculté SHS';
   const deptLabel = conv.departement || 'Département SIC';
@@ -70,7 +71,7 @@ function buildConventionPdfHtml(convId, forPdf) {
         <div class="pdf-field"><label>Thème du PFE :</label><div class="val">${conv.theme}</div></div>
         <div class="pdf-field"><label>Période :</label><div class="val">${conv.periode}</div></div>
         <div class="pdf-field"><label>Encadrant entreprise :</label><div class="val">${encadrantEnt}</div></div>
-        <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">Dr. Hider Fouzia — Département SIC, Univ. Béjaïa</div></div>
+        <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">${encadrantUniv}</div></div>
         <p style="font-size:11px;color:#555;margin-top:6px;line-height:1.6">Conformément à l'article 5 du Décret exécutif n° 13-306, la durée du stage ne peut excéder six (6) mois par année universitaire.</p>
       </div>
 

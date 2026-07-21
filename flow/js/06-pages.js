@@ -252,25 +252,75 @@ ${(()=>{ const company=companies.find(c=>c.name===myConv.company); if(!company) 
   <h2>📁 Suivi du dossier complet</h2>
   <p>Tous vos documents centralisés et téléchargeables</p>
 </div>
+${(() => {
+  const conv = typeof resolveStudentConv === 'function' ? resolveStudentConv(u) : null;
+  const report = conv ? getStudentStageReport(conv) : null;
+  const attestation = conv ? getStudentStageAttestation(conv) : null;
+  const signed = conv && conv.signed_entreprise && conv.signed_univ;
+  const ended = conv && isStagePeriodEnded(conv);
+  const finDate = conv ? (conv.dateFin || conv.date_fin) : null;
+  const convRef = conv ? (conv.reference || ('SF-2026-0' + (conv.id + 46))) : '—';
+  const convStatus = signed ? (report ? 'Déposé' : (ended ? 'À déposer' : 'Stage en cours')) : 'En attente signatures';
+  const rapportRowStatus = report ? 'active' : (ended && signed ? 'pending' : 'missing');
+  const rapportSize = report ? (Math.round((report.content || '').length / 1024 * 10) / 10 + ' Ko') : '—';
+  const progressSigned = signed ? 100 : 0;
+  const progressStage = signed ? (ended ? 100 : 50) : 0;
+  const progressReport = report ? 100 : 0;
+  const progressAttestation = attestation ? 100 : 0;
+
+  let rapportAction = '';
+  if (report) {
+    rapportAction = `<button class="btn btn-ghost btn-sm" onclick="openRapportViewByConv(${conv.id})">👁 Lire</button>`;
+  } else if (ended && signed && conv) {
+    rapportAction = `<button class="btn btn-cyan btn-sm" onclick="openSubmitRapportModal(${conv.id})">📤 Déposer</button>`;
+  } else if (signed && finDate) {
+    rapportAction = `<span class="text-xs text-muted">Dès le ${formatStageDate(finDate)}</span>`;
+  } else {
+    rapportAction = `<span class="text-xs text-muted">Non disponible</span>`;
+  }
+
+  let attestationAction = '';
+  if (attestation) {
+    attestationAction = `<button class="btn btn-ghost btn-sm" onclick="openAttestationViewByConv(${conv.id})">👁 Lire</button>
+      <button class="btn btn-ghost btn-sm" onclick="downloadAttestationPdfByConv(${conv.id})">⬇ PDF</button>`;
+  } else if (ended && signed && conv) {
+    attestationAction = `<button class="btn btn-cyan btn-sm" onclick="openSubmitAttestationModal(${conv.id})">📤 Compléter</button>`;
+  } else if (signed && conv) {
+    attestationAction = `<button class="btn btn-ghost btn-sm" onclick="openAttestationPreviewModal(${conv.id})">📋 Modèle</button>`;
+  } else {
+    attestationAction = `<span class="text-xs text-muted">Non disponible</span>`;
+  }
+
+  return `
 <div class="grid-2 gap16">
   <div class="card">
     <div class="card-title">Documents du dossier</div>
-    ${docRow('Convention de stage','PDF','active','2.1 MB')}
-    ${docRow('Attestation d\'accueil','PDF','pending','—')}
-    ${docRow('Rapport de stage final','PDF','missing','—')}
-    ${docRow('Fiche d\'évaluation entreprise','PDF','missing','—')}
-    ${docRow('Procès-verbal de soutenance','PDF','missing','—')}
+    ${conv ? docRow('Convention de stage — ' + conv.company, 'PDF', signed ? 'active' : 'pending', signed ? 'Signée' : 'En cours') : docRow('Convention de stage', 'PDF', 'missing', '—')}
+    <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="flex items-center gap8"><span>${report ? '📄' : (ended ? '📝' : '⏳')}</span><div><div class="text-sm">Rapport de stage final</div><div class="text-xs text-muted">PDF · ${rapportSize}${conv ? ' · ' + conv.company : ''}</div></div></div>
+      ${rapportAction}
+    </div>
+    <div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="flex items-center gap8"><span>${attestation ? '📄' : (signed ? '📋' : '❌')}</span><div><div class="text-sm">Attestation de stage</div><div class="text-xs text-muted">PDF · ${attestation ? 'Envoyée' : (signed ? 'Modèle pré-rempli' : '—')}${conv ? ' · ' + conv.company : ''}</div></div></div>
+      <div class="flex gap4">${attestationAction}</div>
+    </div>
+    ${docRow('Fiche d\\'évaluation entreprise', 'PDF', report ? 'pending' : 'missing', '—')}
   </div>
   <div class="card">
     <div class="card-title">Avancement global</div>
-    ${progressRow('Profil étudiant',100)}
-    ${progressRow('Recherche & candidature',100)}
-    ${progressRow('Acceptation entreprise',100)}
-    ${progressRow('Convention signée',0)}
-    ${progressRow('Stage actif',0)}
-    ${progressRow('Rapport & soutenance',0)}
+    ${progressRow('Profil étudiant', 100)}
+    ${progressRow('Convention signée', progressSigned)}
+    ${progressRow('Stage actif', progressStage)}
+    ${progressRow('Rapport déposé', progressReport)}
+    ${progressRow('Attestation envoyée', progressAttestation)}
+    ${conv ? `<div class="text-xs text-muted mt12">Convention <strong>${convRef}</strong> · ${convStatus}${finDate ? '<br>Fin de stage : ' + formatStageDate(finDate) : ''}</div>` : ''}
+    ${ended && signed && !report ? `<button class="btn btn-cyan w-full mt16" onclick="openSubmitRapportModal(${conv.id})">📤 Déposer mon rapport de stage</button>` : ''}
+    ${ended && signed && !attestation ? `<button class="btn btn-ghost w-full mt8" onclick="openSubmitAttestationModal(${conv.id})">📋 Compléter mon attestation de stage</button>` : ''}
+    ${report ? `<div class="card mt16" style="padding:12px;background:var(--bg2);border-left:3px solid var(--success)"><p class="text-sm" style="margin:0">✅ Rapport transmis à <strong>${report.entrepriseNom || conv.company}</strong> le ${formatStageDate(report.submittedAt)}</p></div>` : ''}
+    ${attestation ? `<div class="card mt8" style="padding:12px;background:var(--bg2);border-left:3px solid var(--cyan)"><p class="text-sm" style="margin:0">✅ Attestation envoyée à <strong>${attestation.entrepriseNom || conv.company}</strong> le ${formatStageDate(attestation.submittedAt)} · <button class="btn btn-ghost btn-sm" style="margin-left:4px" onclick="downloadAttestationPdfByConv(${conv.id})">Télécharger PDF</button></p></div>` : ''}
   </div>
-</div>`,
+</div>`;
+})()}`,
 
 'profil':`
 <div class="page-header">
@@ -294,6 +344,7 @@ ${(()=>{ const company=companies.find(c=>c.name===myConv.company); if(!company) 
     </div>
     <div class="form-group"><label class="form-label">Université</label><input id="profileUniversity" class="form-input" value="${u.university||''}"></div>
     <div class="form-group"><label class="form-label">Email universitaire</label><input id="profileEmail" class="form-input" value="${u.email||''}"></div>
+    <div class="form-group"><label class="form-label">Encadrant universitaire</label><input id="profileEncadrant" class="form-input" value="${u.encadrant||''}" placeholder="Ex: Dr. Hider Fouzia"></div>
     <div class="form-group"><label class="form-label">Thème PFE</label><input id="profileTheme" class="form-input" value="${u.theme||''}"></div>
     <button class="btn btn-cyan" onclick="saveProfile()">Enregistrer</button>
   </div>
@@ -363,17 +414,18 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
     <div class="card-title">📩 Demandes récentes</div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Étudiant(e)</th><th>Thème</th><th>Date</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Étudiant(e)</th><th>Thème</th><th>Encadrant</th><th>Date</th><th>Actions</th></tr></thead>
         <tbody>
           ${myDemandes.length ? myDemandes.map(d=>`
           <tr>
             <td><strong>${d.studentLabel||d.studentName||'—'}</strong></td>
             <td style="max-width:200px">${d.theme}</td>
+            <td class="text-sm">${d.status==='accepted' && d.encadrant && d.encadrant!=='—' ? d.encadrant : '—'}</td>
             <td>${d.date}</td>
             <td>${d.status==='pending'
-              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="accepterDemandeById(${d.id})">✓ Accepter</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
+              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="openAcceptDemandeModal(${d.id})">✓ Accepter</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
               : statusPill(d.status)}</td>
-          </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>'}
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -390,7 +442,7 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
           ${statusPill(conv.status)}
         </div>
         <div class="text-xs text-muted mb12">${conv.theme} — ${conv.periode}</div>
-        <div class="text-xs text-muted mb12">Signatures : ${sigCount}/3 ${conv.signed_entreprise?'· déjà signée par votre entreprise':''}</div>
+        <div class="text-xs text-muted mb12">Encadrant : ${conv.encadrant_entreprise||'—'} · Signatures : ${sigCount}/2 ${conv.signed_entreprise?'· déjà signée par votre entreprise':''}</div>
         <button class="btn btn-cyan btn-sm" onclick="openConventionById(${conv.id})">${conv.signed_entreprise?'👁️ Voir la convention':'✍️ Signer la convention'}</button>
       </div>`;
       }).join('');
@@ -405,20 +457,23 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
 <div class="card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Étudiant(e)</th><th>Thème</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Étudiant(e)</th><th>Thème</th><th>Encadrant</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
         ${(()=>{ const myCompany = state.user.company || state.user.name;
           const myDemandes = demandes.filter(d=>d.company===myCompany);
-          if(!myDemandes.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>';
+          if(!myDemandes.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>';
           return myDemandes.map(d=>`<tr>
             <td><strong>${d.studentLabel||d.studentName||'—'}</strong></td>
             <td style="max-width:220px">${d.theme}</td>
+            <td class="text-sm">${d.status==='accepted' && d.encadrant && d.encadrant!=='—' ? d.encadrant : (d.status==='pending' ? '<span class="text-muted">À désigner</span>' : '—')}</td>
             <td>${d.date}</td>
             <td>${statusPill(d.status)}</td>
             <td>${d.status==='pending'
-              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="accepterDemandeById(${d.id})">✓</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
+              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" title="Accepter et désigner l'encadrant" onclick="openAcceptDemandeModal(${d.id})">✓</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
               : d.status==='accepted'
-                ? `<button class="btn btn-cyan btn-sm" onclick="navigateTo('ent-conventions')">Voir convention</button>`
+                ? (()=>{ const c = conventions.find(x=>x.fromDb && (x.etudiant||'')===(d.studentName||'') && x.company===d.company);
+                  return c ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${c.id})">Voir convention</button>` : `<span class="text-xs text-muted">Convention en cours…</span>`;
+                })()
                 : '—'}</td>
           </tr>`).join('');
         })()}
@@ -432,14 +487,15 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
 <div class="card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Référence</th><th>Étudiant(e)</th><th>Thème</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Référence</th><th>Étudiant(e)</th><th>Encadrant</th><th>Thème</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
         ${(()=>{ const myCompany = state.user.company || state.user.name;
           const myConvs = conventions.filter(c=>c.company===myCompany);
-          if(!myConvs.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Aucune convention pour le moment</td></tr>';
+          if(!myConvs.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Aucune convention pour le moment</td></tr>';
           return myConvs.map(c=>`<tr>
-          <td><strong>SF-2026-0${c.id+46}</strong></td>
+          <td><strong>${c.reference||('SF-2026-0'+(c.id+46))}</strong></td>
           <td>${c.etudiant}</td>
+          <td class="text-sm">${c.encadrant_entreprise||'—'}</td>
           <td style="max-width:180px">${c.theme}</td>
           <td>${c.periode}</td>
           <td>${statusPill(c.status)}</td>
@@ -452,26 +508,67 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
 </div>`,
 
 'ent-stagiaires':`
-<div class="page-header"><h2>👥 Stagiaires actifs — ${state.user.company||state.user.name||'Entreprise'}</h2></div>
+<div class="page-header"><h2>👥 Stagiaires — ${state.user.company||state.user.name||'Entreprise'}</h2></div>
+${(() => {
+  const rapports = state.entrepriseRapports || [];
+  const attestations = state.entrepriseAttestations || [];
+  let html = '';
+  if (attestations.length) {
+    html += `<div class="card mb16">
+      <div class="card-title">📋 Attestations de stage reçues</div>
+      ${attestations.map(a => `<div style="border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <div class="text-sm" style="font-weight:600">${a.studentName}</div>
+          <div class="text-xs text-muted">${(a.prefilled && a.prefilled.theme) || '—'}</div>
+          <div class="text-xs text-muted mt4">Reçue le ${formatStageDate(a.submittedAt)}</div>
+        </div>
+        <div class="flex gap4">
+          <button class="btn btn-ghost btn-sm" onclick="openAttestationViewById('${a.id}')">Voir</button>
+          <button class="btn btn-cyan btn-sm" onclick="downloadAttestationPdfByConv(${a.conventionId})">⬇ PDF</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+  if (rapports.length) {
+    html += `<div class="card mb16">
+      <div class="card-title">📝 Rapports de stage reçus</div>
+      ${rapports.map(r => `<div style="border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <div class="text-sm" style="font-weight:600">${r.studentName}</div>
+          <div class="text-xs text-muted">${r.title}</div>
+          <div class="text-xs text-muted mt4">Déposé le ${formatStageDate(r.submittedAt)} · ${r.summary || (r.content || '').slice(0, 80) + '…'}</div>
+        </div>
+        <button class="btn btn-cyan btn-sm" onclick="openRapportViewById('${r.id}')">Lire le rapport</button>
+      </div>`).join('')}
+    </div>`;
+  }
+  return html;
+})()}
 <div class="grid-2 gap16">
   ${(() => {
     const company = state.user.company || state.user.name;
     const mine = conventions.filter(c => c.company === company || (c.entrepriseId && state.user.entrepriseId && c.entrepriseId === state.user.entrepriseId));
     if (!mine.length) {
-      return '<div class="card"><div class="empty-state" style="padding:24px"><div class="ico">👥</div><p class="text-sm text-muted">Aucun stagiaire actif pour le moment</p></div></div>';
+      return '<div class="card"><div class="empty-state" style="padding:24px"><div class="ico">👥</div><p class="text-sm text-muted">Aucun stagiaire pour le moment</p></div></div>';
     }
     return mine.map(c => {
       const initials = (c.etudiant || 'ET').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
       const sigN = [c.signed_entreprise, c.signed_univ].filter(Boolean).length;
+      const fin = c.dateFin || c.date_fin;
+      const ended = typeof isStagePeriodEnded === 'function' && isStagePeriodEnded(c);
+      const report = (state.entrepriseRapports || []).find(r => r.conventionId === c.id);
+      const attestation = (state.entrepriseAttestations || []).find(a => a.conventionId === c.id);
       return `<div class="card">
     <div class="flex items-center gap12 mb12">
       <div style="width:44px;height:44px;border-radius:12px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;color:var(--navy)">${initials}</div>
       <div><div class="font-syne" style="font-size:14px">${c.etudiant}</div><div class="text-xs text-muted">${c.faculte || '—'} · ${c.departement || '—'}</div></div>
     </div>
     <div class="text-sm mb8">${c.theme || '—'}</div>
-    <div class="text-xs text-muted mb10">${c.periode || '—'}</div>
+    <div class="text-xs text-muted mb10">${c.periode || '—'}${fin ? ' · Fin : ' + formatStageDate(fin) : ''}</div>
     <div class="flex justify-between mb6"><span class="text-xs text-muted">Convention</span><span class="text-xs text-muted">${sigN}/2 signatures</span></div>
-    <div class="progress-wrap"><div class="progress-bar" style="width:${Math.round(sigN/2*100)}%"></div></div>
+    <div class="progress-wrap mb10"><div class="progress-bar" style="width:${Math.round(sigN/2*100)}%"></div></div>
+    ${report ? '<span class="status-pill s-active" style="font-size:10px;margin-right:6px">Rapport reçu ✅</span>' : (ended ? '<span class="status-pill s-pending" style="font-size:10px;margin-right:6px">En attente rapport</span>' : '<span class="text-xs text-muted">Stage en cours</span>')}
+    ${attestation ? '<span class="status-pill s-active" style="font-size:10px">Attestation reçue ✅</span>' : (ended ? '<span class="status-pill s-pending" style="font-size:10px">En attente attestation</span>' : '')}
   </div>`;
     }).join('');
   })()}
@@ -593,17 +690,17 @@ ${(() => {
   <h2>Tableau de bord — ${state.user.faculte||state.user.university} 🏛️</h2>
   <p>${state.user.type==='departement'?state.user.departement+' · ':''}${state.user.name} — ${state.user.role_title}</p>
 </div>
-${(()=>{ const pending = (sharedData.universityNotifications||[]).filter(n=>!n.conventionGenerated && n.faculte===(state.user.faculte) && (state.user.type==='faculte' || n.departement===state.user.departement));
-  if(!pending.length) return '';
+${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.conventionGenerated && n.faculte===(state.user.faculte) && (state.user.type==='faculte' || n.departement===state.user.departement)).slice(-3).reverse();
+  if(!recent.length) return '';
   return `
-<div class="card mb16" style="border-left:3px solid var(--accent);background:rgba(240,165,0,0.05)">
-  ${pending.map(n=>`
-  <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px;${pending.length>1?'padding:8px 0;border-bottom:1px solid var(--border)':''}">
+<div class="card mb16" style="border-left:3px solid var(--success);background:rgba(0,196,140,0.05)">
+  ${recent.map(n=>`
+  <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px;${recent.length>1?'padding:8px 0;border-bottom:1px solid var(--border)':''}">
     <div>
-      <div class="text-sm" style="font-weight:600">✅ Nouvel accord trouvé : ${n.studentLabel} × ${n.company}</div>
-      <div class="text-xs text-muted mt8">${n.theme} — ${n.departement}. Cliquez pour générer la convention (conforme au Décret exécutif n° 13-306 du 16/09/2013).</div>
+      <div class="text-sm" style="font-weight:600">📄 Convention créée automatiquement : ${n.studentLabel} × ${n.company}</div>
+      <div class="text-xs text-muted mt8">${n.conventionReference || (n.generatedConventionId ? 'SF-2026-0'+(n.generatedConventionId+46) : '—')} · ${n.theme} · Encadrant : ${n.encadrantEntreprise || '—'}</div>
     </div>
-    <button class="btn btn-cyan btn-sm" onclick="genererConvention('${n.id}')">🪄 Générer la convention</button>
+    ${n.generatedConventionId ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${n.generatedConventionId})">Voir la convention</button>` : ''}
   </div>`).join('')}
 </div>`; })()}
 <div class="grid-4 mb16">

@@ -22,6 +22,8 @@ const { entreprisesRouter, demandesRouter, conventionsRouter } = require('./rout
 app.use('/api/entreprises', entreprisesRouter);
 app.use('/api/demandes', demandesRouter);
 app.use('/api/conventions', conventionsRouter);
+app.use('/api/rapports', require('./routes/stage-reports').stageReportsRouter);
+app.use('/api/attestations', require('./routes/stage-attestations').stageAttestationsRouter);
 
 app.get('/', (req, res) => {
   res.json({

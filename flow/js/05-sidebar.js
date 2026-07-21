@@ -85,8 +85,12 @@ function navigateTo(pageId) {
     loadCompaniesFromDb().finally(renderPage);
     return;
   }
-  if (state.role === 'etudiant' && (pageId === 'dashboard' || pageId === 'demandes' || pageId === 'convention') && typeof syncEtudiantFromDb === 'function') {
+  if (state.role === 'etudiant' && (pageId === 'dashboard' || pageId === 'demandes' || pageId === 'convention' || pageId === 'dossier') && typeof syncEtudiantFromDb === 'function') {
     syncEtudiantFromDb().finally(renderPage);
+    return;
+  }
+  if (state.role === 'entreprise' && pageId === 'ent-stagiaires' && typeof syncEntrepriseStageDocsFromDb === 'function') {
+    syncEntrepriseStageDocsFromDb().finally(renderPage);
     return;
   }
   renderPage();

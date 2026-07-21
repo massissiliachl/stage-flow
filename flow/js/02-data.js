@@ -1,7 +1,7 @@
 // ══════════════════════════════════
 // DATA
 // ══════════════════════════════════
-const state = { role:null, user:null, currentPage:null, signatures:{}, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
+const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
 
 // Map des comptes inscrits en session (email → objet utilisateur)
 // Permet de gérer plusieurs comptes créés dynamiquement
@@ -147,6 +147,65 @@ async function syncEtudiantFromDb() {
   await loadCompaniesFromDb();
   await syncStudentDemandesFromDb();
   await syncStudentConventionsFromDb();
+  await syncStudentStageReportFromDb();
+  await syncStudentStageAttestationFromDb();
+}
+
+async function syncStudentStageReportFromDb() {
+  const u = state.user;
+  if (!u || !u.name) return;
+  const conv = typeof getStudentConvention === 'function' ? getStudentConvention(u) : null;
+  if (!conv || !conv.id) return;
+  try {
+    const data = await apiJson('/api/rapports/' + conv.id);
+    if (data.report) state.stageReports[conv.id] = data.report;
+    else delete state.stageReports[conv.id];
+  } catch (e) {
+    console.warn('[StageFlow] Rapport étudiant (base):', e.message);
+  }
+}
+
+async function syncStudentStageAttestationFromDb() {
+  const u = state.user;
+  if (!u || !u.name) return;
+  const conv = typeof getStudentConvention === 'function' ? getStudentConvention(u) : null;
+  if (!conv || !conv.id) return;
+  try {
+    const data = await apiJson('/api/attestations/' + conv.id);
+    if (data.attestation) state.stageAttestations[conv.id] = data.attestation;
+    else delete state.stageAttestations[conv.id];
+    if (data.template) state.stageAttestationTemplates = state.stageAttestationTemplates || {};
+    state.stageAttestationTemplates[conv.id] = data.template;
+  } catch (e) {
+    console.warn('[StageFlow] Attestation étudiant (base):', e.message);
+  }
+}
+
+async function syncEntrepriseRapportsFromDb() {
+  const entId = state.user && state.user.entrepriseId;
+  if (!entId) return;
+  try {
+    const data = await apiJson('/api/entreprise/' + entId + '/rapports');
+    state.entrepriseRapports = data.rapports || [];
+  } catch (e) {
+    console.warn('[StageFlow] Rapports entreprise (base):', e.message);
+  }
+}
+
+async function syncEntrepriseAttestationsFromDb() {
+  const entId = state.user && state.user.entrepriseId;
+  if (!entId) return;
+  try {
+    const data = await apiJson('/api/entreprise/' + entId + '/attestations');
+    state.entrepriseAttestations = data.attestations || [];
+  } catch (e) {
+    console.warn('[StageFlow] Attestations entreprise (base):', e.message);
+  }
+}
+
+async function syncEntrepriseStageDocsFromDb() {
+  await syncEntrepriseRapportsFromDb();
+  await syncEntrepriseAttestationsFromDb();
 }
 
 function studentStageIsLocked() {
