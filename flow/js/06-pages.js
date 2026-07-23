@@ -611,7 +611,7 @@ ${(() => {
   <p>${state.user.name} — ${state.user.role_title} · Vue globale de toutes les facultés et départements</p>
 </div>
 <div class="grid-4 mb16">
-  ${(()=>{ const sStudents=filterByScope(students_bejaia,state.user), sConv=filterByScope(conventions,state.user);
+  ${(()=>{ const sStudents=filterByScope(getUniversityStudents(),state.user), sConv=filterByScope(conventions,state.user);
     const placed=sStudents.filter(s=>s.status==='active'||s.status==='accepted'||s.status==='archived').length;
     const placementRate = sStudents.length ? Math.round(placed/sStudents.length*100) : 0;
     const toValidate=sConv.filter(c=>c.status!=='archived').length;
@@ -675,7 +675,7 @@ ${(() => {
   <h2>Tableau de bord — ${state.user.faculte||state.user.university} 🏛️</h2>
   <p>${state.user.type==='departement'?state.user.departement+' · ':''}${state.user.name} — ${state.user.role_title}</p>
 </div>
-${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.conventionGenerated && n.faculte===(state.user.faculte) && (state.user.type==='faculte' || n.departement===state.user.departement)).slice(-3).reverse();
+${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.conventionGenerated && faculteMatches(state.user.faculte, n.faculte) && (state.user.type==='faculte' || departementMatches(state.user.departement, n.departement))).slice(-3).reverse();
   if(!recent.length) return '';
   return `
 <div class="card mb16" style="border-left:3px solid var(--success);background:rgba(0,196,140,0.05)">
@@ -689,7 +689,7 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
   </div>`).join('')}
 </div>`; })()}
 <div class="grid-4 mb16">
-  ${(()=>{ const sStudents=filterByScope(students_bejaia,state.user), sConv=filterByScope(conventions,state.user);
+  ${(()=>{ const sStudents=filterByScope(getUniversityStudents(),state.user), sConv=filterByScope(conventions,state.user);
     const placed=sStudents.filter(s=>s.status==='active'||s.status==='accepted'||s.status==='archived').length;
     const toValidate=sConv.filter(c=>c.status!=='archived').length;
     const archived=sConv.filter(c=>c.status==='archived').length;
@@ -711,7 +711,7 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           ${statusPill(c.status)}
-          <button class="btn btn-cyan btn-sm" onclick="validerConvention('${c.etudiant}')">Valider</button>
+          <button class="btn btn-cyan btn-sm" onclick="openConventionById(${c.id})">${c.signed_univ ? 'Voir' : '✍️ Signer'}</button>
         </div>
       </div>`).join('') || '<div class="empty-state"><div class="ico">✅</div><p>Aucune convention en attente pour ce périmètre</p></div>'}
     </div>
@@ -736,9 +736,9 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
       <thead><tr><th>Référence</th><th>Étudiante</th>${state.user.type!=='departement'?'<th>Département</th>':''}<th>Entreprise</th><th>Thème</th><th>Signatures</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
         ${filterByScope(conventions,state.user).map(c=>`<tr>
-          <td><strong>SF-2026-0${c.id+46}</strong></td>
+          <td><strong>${c.reference || ('SF-2026-0' + (c.id + 46))}</strong></td>
           <td>${c.etudiant}</td>
-          ${state.user.type!=='departement'?`<td class="text-xs">${c.departement}</td>`:''}
+          ${state.user.type!=='departement'?`<td class="text-xs">${c.departement || '—'}</td>`:''}
           <td>${c.company}</td>
           <td style="max-width:140px">${c.theme}</td>
           <td>
@@ -747,7 +747,7 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
           </td>
           <td>${statusPill(c.status)}</td>
           <td style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" onclick="openConvention()">Voir</button>
+            <button class="btn btn-ghost btn-sm" onclick="openConventionById(${c.id})">Voir</button>
             ${c.status!=='archived'?`<button class="btn btn-navy btn-sm" onclick="archiverConvention('${c.etudiant}')">Archiver</button>`:'<span class="text-xs text-muted">Archivé ✅</span>'}
           </td>
         </tr>`).join('')}
@@ -770,7 +770,7 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
     <table>
       <thead><tr><th>Étudiant(e)</th><th>Spécialité</th>${state.user.type!=='departement'?'<th>Département</th>':''}<th>Entreprise</th><th>Statut</th></tr></thead>
       <tbody>
-        ${filterByScope(students_bejaia,state.user).map(s=>`<tr>
+        ${filterByScope(getUniversityStudents(),state.user).map(s=>`<tr>
           <td><strong>${s.name}</strong></td>
           <td>${s.specialty}</td>
           ${state.user.type!=='departement'?`<td class="text-xs">${s.departement}</td>`:''}
@@ -889,7 +889,7 @@ ${state.user.type==='universite' ? `
     <table>
       <thead><tr><th>Référence</th><th>Étudiante</th>${state.user.type==='universite'?'<th>Faculté</th><th>Spécialité (département)</th>':''}<th>Entreprise</th><th>Date archivage</th><th>Taille</th><th>Actions</th></tr></thead>
       <tbody>
-        ${filterByScope(conventions,state.user).filter(c=>c.status==='archived').map(c=>`<tr><td><strong>SF-2026-0${c.id+46}</strong></td><td>${c.etudiant}</td>${state.user.type==='universite'?`<td class="text-xs">${c.faculte}</td><td class="text-xs">${c.departement}</td>`:''}<td>${c.company}</td><td>12 Jan 2026</td><td>4.2 MB</td><td style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openConvention()">Consulter</button><button class="btn btn-ghost btn-sm" onclick="downloadArchivedConvention(${c.id})">⬇</button></td></tr>`).join('') || `<tr><td colspan="${state.user.type==='universite'?7:5}" style="text-align:center;color:var(--text3);padding:24px">Aucune archive pour ce périmètre</td></tr>`}
+        ${filterByScope(conventions,state.user).filter(c=>c.status==='archived').map(c=>`<tr><td><strong>${c.reference || ('SF-2026-0' + (c.id + 46))}</strong></td><td>${c.etudiant}</td>${state.user.type==='universite'?`<td class="text-xs">${c.faculte}</td><td class="text-xs">${c.departement}</td>`:''}<td>${c.company}</td><td>12 Jan 2026</td><td>4.2 MB</td><td style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="openConventionById(${c.id})">Consulter</button><button class="btn btn-ghost btn-sm" onclick="downloadArchivedConvention(${c.id})">⬇</button></td></tr>`).join('') || `<tr><td colspan="${state.user.type==='universite'?7:5}" style="text-align:center;color:var(--text3);padding:24px">Aucune archive pour ce périmètre</td></tr>`}
       </tbody>
     </table>
   </div>

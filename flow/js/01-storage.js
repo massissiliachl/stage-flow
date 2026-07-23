@@ -227,6 +227,9 @@ async function syncRoleDataFromDb() {
     await syncEtudiantFromDb();
     return { changed: true, newDemandes: [] };
   }
+  if (state.role === 'universite' && typeof syncUniversiteFromDb === 'function') {
+    return syncUniversiteFromDb();
+  }
   return { changed: false, newDemandes: [] };
 }
 

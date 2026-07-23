@@ -1,7 +1,7 @@
 // ══════════════════════════════════
 // DATA
 // ══════════════════════════════════
-const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], companiesFromDb:false, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
+const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], universityStudentsFromDb:[], companiesFromDb:false, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
 
 // Map des comptes inscrits en session (email → objet utilisateur)
 // Permet de gérer plusieurs comptes créés dynamiquement
@@ -269,6 +269,55 @@ async function syncEtudiantFromDb() {
   await syncStudentConventionsFromDb();
   await syncStudentStageReportFromDb();
   await syncStudentStageAttestationFromDb();
+}
+
+function ensureUniversityNotificationsFromConventions(fromDbConventions) {
+  if (!Array.isArray(fromDbConventions) || !fromDbConventions.length) return;
+  sharedData.universityNotifications = sharedData.universityNotifications || [];
+  fromDbConventions.forEach(function(conv) {
+    if (!conv || !conv.id) return;
+    const exists = sharedData.universityNotifications.some(function(n) {
+      return Number(n.generatedConventionId) === Number(conv.id)
+        || ((n.studentName || n.studentLabel || '') === (conv.etudiant || ''));
+    });
+    if (exists) return;
+    sharedData.universityNotifications.push({
+      id: 'conv-db-' + conv.id,
+      studentName: conv.etudiant,
+      studentLabel: conv.etudiant,
+      company: conv.company,
+      theme: conv.theme || '',
+      encadrantEntreprise: conv.encadrant_entreprise || '—',
+      faculte: conv.faculte || 'Faculté SHS',
+      departement: conv.departement || '',
+      conventionGenerated: true,
+      generatedConventionId: conv.id,
+      conventionReference: conv.reference || null,
+      read: false,
+    });
+  });
+}
+
+async function syncUniversiteFromDb() {
+  try {
+    const data = await apiJson('/api/universite/overview');
+    const fromDb = data.conventions || [];
+    for (let i = conventions.length - 1; i >= 0; i--) {
+      if (conventions[i].fromDb) conventions.splice(i, 1);
+    }
+    fromDb.forEach(function(c) {
+      const idx = conventions.findIndex(function(x) { return x.id === c.id; });
+      if (idx >= 0) conventions[idx] = c;
+      else conventions.push(c);
+    });
+    state.universityStudentsFromDb = data.students || [];
+    ensureUniversityNotificationsFromConventions(fromDb);
+    await persistSharedData();
+    return { changed: true, newDemandes: [] };
+  } catch (e) {
+    console.warn('[StageFlow] Sync université (base):', e.message);
+    return { changed: false, newDemandes: [] };
+  }
 }
 
 async function syncStudentStageReportFromDb() {

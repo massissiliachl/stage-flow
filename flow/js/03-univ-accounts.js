@@ -69,14 +69,67 @@ function getScopeFiltersFor(account){
   };
 }
 
+function normalizeFaculteKey(text) {
+  const t = String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!t) return '';
+  if (t.includes('shs') || t.includes('sciences humaines') || t.includes('humaines et sociales')) return 'shs';
+  if (t.includes('droit')) return 'droit';
+  return t.trim();
+}
+
+function normalizeDepartementKey(text) {
+  const t = String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!t) return '';
+  if (t.includes('sic') || t.includes('communication') || t.includes('science de la communication')) return 'sic';
+  if (t.includes('droit prive') || t.includes('droit priv')) return 'droit-prive';
+  if (t.includes('sociologie')) return 'socio';
+  if (t.includes('staps')) return 'staps';
+  return t.trim();
+}
+
+function faculteMatches(expected, actual) {
+  if (!expected || !actual) return expected === actual;
+  if (expected === actual) return true;
+  return normalizeFaculteKey(expected) === normalizeFaculteKey(actual);
+}
+
+function departementMatches(expected, actual) {
+  if (!expected || !actual) return expected === actual;
+  if (expected === actual) return true;
+  return normalizeDepartementKey(expected) === normalizeDepartementKey(actual);
+}
+
+function itemMatchesScope(item, scope) {
+  if (!scope || !item) return true;
+  if (scope.departements.length) {
+    return scope.departements.some(function(d) { return departementMatches(d, item.departement); });
+  }
+  if (scope.facultes.length) {
+    return scope.facultes.some(function(f) { return faculteMatches(f, item.faculte); });
+  }
+  return true;
+}
+
 function filterByScope(list, account){
   const scope = getScopeFiltersFor(account);
-  if(!scope) return list; // université = tout
-  return list.filter(item=>{
-    if(scope.departements.length) return scope.departements.includes(item.departement);
-    if(scope.facultes.length) return scope.facultes.includes(item.faculte);
-    return true;
+  if(!scope) return list;
+  return list.filter(function(item) { return itemMatchesScope(item, scope); });
+}
+
+function getUniversityStudents() {
+  const real = Array.isArray(state.universityStudentsFromDb) ? state.universityStudentsFromDb : [];
+  const demo = students_bejaia.filter(function(s) {
+    return !real.some(function(r) {
+      return String(r.name || '').toLowerCase() === String(s.name || '').toLowerCase();
+    });
   });
+  return real.concat(demo);
 }
 
 // Renvoie les comptes directement rattachés (enfants) d'un compte
@@ -87,12 +140,14 @@ function getChildAccounts(account){
 // Construit une répartition étudiants / conventions par faculté → département
 // Utilisé par le rectorat (vue université) pour les statistiques et l'archivage globaux
 function buildOrgBreakdown(){
+  const allStudents = typeof getUniversityStudents === 'function' ? getUniversityStudents() : students_bejaia;
   const facultes = universityAccounts.filter(a=>a.type==='faculte');
   return facultes.map(fac=>{
     const depts = universityAccounts.filter(a=>a.type==='departement' && a.parentId===fac.id);
     const deptRows = depts.map(dep=>{
-      const sStudents = students_bejaia.filter(s=>s.departement===dep.departement);
-      const sConv = conventions.filter(c=>c.departement===dep.departement);
+      const deptScope = { facultes: [fac.faculte], departements: [dep.departement] };
+      const sStudents = allStudents.filter(function(s) { return itemMatchesScope(s, deptScope); });
+      const sConv = conventions.filter(function(c) { return itemMatchesScope(c, deptScope); });
       const archived = sConv.filter(c=>c.status==='archived');
       const signedFull = sConv.filter(c=>c.signed_entreprise && c.signed_univ);
       return {

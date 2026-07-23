@@ -163,7 +163,8 @@ async function saveSignature(type, data, text) {
       if(state.role==='entreprise') conv.signed_entreprise = false;
       if(state.role==='universite') conv.signed_univ = false;
       delete conv.signatures[state.role];
-      showToast('❌ Erreur lors de l\'enregistrement de la signature');
+      const detail = e.details && e.details.detail;
+      showToast('❌ Erreur lors de l\'enregistrement de la signature' + (detail ? ' — ' + detail : ''));
       return;
     }
   }

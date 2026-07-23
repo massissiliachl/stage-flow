@@ -19,6 +19,7 @@ app.use('/api/auth/entreprise', require('./routes/auth-entreprise'));
 app.use('/api/auth/etudiant', require('./routes/auth-etudiant'));
 app.use('/api/auth', require('./routes/auth-email'));
 app.use('/api/entreprise', require('./routes/entreprise-data'));
+app.use('/api/universite', require('./routes/universite-data'));
 const { entreprisesRouter, demandesRouter, conventionsRouter } = require('./routes/entreprises-list');
 app.use('/api/entreprises', entreprisesRouter);
 app.use('/api/demandes', demandesRouter);

@@ -12,6 +12,11 @@ const {
   createOrUpdateConventionForDemand,
   ensureConventionsForStudent,
 } = require('../lib/convention-service');
+const {
+  queryConventions,
+  updateConventionSign,
+  mapConventionRows,
+} = require('../lib/convention-query');
 
 const entreprisesRouter = express.Router();
 const demandesRouter = express.Router();
@@ -484,31 +489,16 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
       sig.universite
     );
 
-    const upd = await pool.query(
-      `UPDATE conventions SET
-         signatures = $2::jsonb,
-         signed_etudiant = $3,
-         signed_entreprise = $4,
-         signed_universite = $5,
-         status = $6,
-         document_hash = $7,
-         final_integrity_hash = $8,
-         hash_algorithm = $9,
-         updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [
-        convId,
-        JSON.stringify(sig),
-        signedEtudiant,
-        signedEntreprise,
-        signedUniversite,
-        status,
-        documentHash,
-        finalIntegrityHash,
-        HASH_ALGORITHM,
-      ]
-    );
+    const upd = await updateConventionSign(pool, {
+      convId,
+      sigJson: JSON.stringify(sig),
+      signedEtudiant,
+      signedEntreprise,
+      signedUniversite,
+      status,
+      documentHash,
+      finalIntegrityHash,
+    });
 
     res.json({
       message: 'Signature enregistrée',
@@ -523,7 +513,10 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
     });
   } catch (err) {
     console.error('Convention sign error:', err.message);
-    res.status(500).json({ error: 'Erreur lors de l\'enregistrement de la signature' });
+    res.status(500).json({
+      error: 'Erreur lors de l\'enregistrement de la signature',
+      detail: err.message,
+    });
   }
 });
 
@@ -535,16 +528,12 @@ conventionsRouter.get('/', async (req, res) => {
   try {
     const pool = getPool();
     await ensureConventionsForStudent(pool, studentName);
-    const result = await pool.query(
-      `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
-              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-              document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
-       FROM conventions
-       WHERE student_name = $1
-       ORDER BY id DESC`,
-      [studentName]
-    );
-    res.json({ conventions: result.rows.map(mapConventionRow) });
+    const result = await queryConventions(pool, {
+      where: 'student_name = $1',
+      params: [studentName],
+      orderBy: 'id DESC',
+    });
+    res.json({ conventions: mapConventionRows(result.rows) });
   } catch (err) {
     console.error('List conventions étudiant error:', err.message);
     res.status(500).json({ error: 'Erreur lors du chargement des conventions' });
@@ -589,13 +578,11 @@ conventionsRouter.get('/:conventionId', async (req, res) => {
   }
   try {
     const pool = getPool();
-    const result = await pool.query(
-      `SELECT id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
-              signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-              document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
-       FROM conventions WHERE id = $1`,
-      [convId]
-    );
+    const result = await queryConventions(pool, {
+      where: 'id = $1',
+      params: [convId],
+      orderBy: 'id DESC',
+    });
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Convention introuvable' });
     }

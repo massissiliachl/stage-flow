@@ -217,8 +217,8 @@ function buildNotifList(){
     list = dynamicNotifs.length ? [] : (notifications.entreprise || []);
   } else if(state.role==='universite' && state.user && state.user.type!=='universite'){
     dynamicNotifs = (sharedData.universityNotifications||[])
-      .filter(n=> n.faculte===state.user.faculte &&
-        (state.user.type==='faculte' || n.departement===state.user.departement))
+      .filter(n=> faculteMatches(state.user.faculte, n.faculte) &&
+        (state.user.type==='faculte' || departementMatches(state.user.departement, n.departement)))
       .map(n=>({
         icon: n.conventionGenerated ? '📄' : '🔔',
         color: n.conventionGenerated ? '#D1FAE5' : '#FFF3CD',
@@ -536,8 +536,8 @@ async function notifyUniversityOfAccord(demande, apiConvention){
     company: demande.company,
     theme: demande.theme,
     encadrantEntreprise: demande.encadrant || ent().encadrant_stage || '',
-    faculte: demande.faculte || studentProfile?.faculte || 'Faculté SHS',
-    departement: demande.departement || studentProfile?.dept || studentProfile?.departement || 'Département SIC',
+    faculte: (conv && conv.faculte) || demande.faculte || studentProfile?.faculte || 'Faculté SHS',
+    departement: (conv && conv.departement) || demande.departement || studentProfile?.dept || studentProfile?.departement || '',
     conventionGenerated: !!(conv && conv.id),
     generatedConventionId: conv && conv.id ? conv.id : null,
     conventionReference: conv && conv.reference ? conv.reference : null,
@@ -599,13 +599,8 @@ function refuserDemande(n){
 
 function validerConvention(n){
   const conv = conventions.find(c=>c.etudiant===n);
-  if(conv){
-    conv.signed_univ = true;
-    if(conv.signed_entreprise && conv.signed_univ) conv.status = 'signed';
-    persistConventionState(conv.id);
-  }
-  showToast(`✅ Convention de ${n} validée par l'université — visible côté étudiant et entreprise`);
-  refreshCurrentView();
+  if(!conv){ showToast('⚠️ Convention introuvable'); return; }
+  openConventionById(conv.id);
 }
 
 function archiverConvention(n){
