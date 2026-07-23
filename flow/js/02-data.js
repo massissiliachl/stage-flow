@@ -19,9 +19,23 @@ async function apiJson(path, options = {}) {
   return data;
 }
 
+function entrepriseSyncFingerprint(entId) {
+  return demandes
+    .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
+    .map(function(d) { return d.id + ':' + d.status; })
+    .sort()
+    .join('|');
+}
+
 async function syncEntrepriseDataFromDb(account) {
-  if (!account || !account.entrepriseId) return;
+  if (!account || !account.entrepriseId) return { changed: false, newDemandes: [] };
   const entId = Number(account.entrepriseId);
+  const fpBefore = entrepriseSyncFingerprint(entId);
+  const idsBefore = new Set(
+    demandes
+      .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
+      .map(function(d) { return d.id; })
+  );
   try {
     const data = await apiJson('/api/entreprise/' + entId + '/dashboard');
     for (let i = demandes.length - 1; i >= 0; i--) {
@@ -33,8 +47,14 @@ async function syncEntrepriseDataFromDb(account) {
     (data.demandes || []).forEach(function(d) { demandes.push(d); });
     (data.conventions || []).forEach(function(c) { conventions.push(c); });
     await loadEntrepriseProfileFromDb(account);
+    const newDemandes = demandes.filter(function(d) {
+      return d.fromDb && Number(d.entrepriseId) === entId && !idsBefore.has(d.id);
+    });
+    const changed = fpBefore !== entrepriseSyncFingerprint(entId);
+    return { changed: changed, newDemandes: newDemandes };
   } catch (e) {
     console.warn('[StageFlow] Données entreprise (base de données):', e.message);
+    return { changed: false, newDemandes: [] };
   }
 }
 
@@ -404,6 +424,28 @@ function buildStudentDashboardNotifs(u) {
     notifs.push({ icon: '🔍', color: '#DBEAFE', text: 'Postulez à une entreprise inscrite pour démarrer votre dossier PFE', time: 'Maintenant', read: false });
   }
   return notifs.slice(0, 4);
+}
+
+function buildEntrepriseDashboardNotifs() {
+  const pending = getEntrepriseDemandes().filter(function(d) { return d.status === 'pending'; });
+  return pending.slice(0, 4).map(function(d) {
+    return {
+      icon: '📩',
+      color: '#DBEAFE',
+      text: 'Candidature de ' + (d.studentLabel || d.studentName || '—') + ' — ' + (d.theme || 'stage'),
+      time: typeof formatDashDate === 'function' ? formatDashDate(d.date) : (d.date || 'Récent'),
+      read: false,
+    };
+  });
+}
+
+function notifyNewEntrepriseDemandes(newDemandes) {
+  if (!newDemandes || !newDemandes.length) return;
+  newDemandes.forEach(function(d) {
+    const label = d.studentLabel || d.studentName || 'Étudiant(e)';
+    showToast('📩 Nouvelle candidature — ' + label + ' · ' + (d.theme || 'stage'));
+  });
+  if (state.role === 'entreprise' && typeof buildNotifList === 'function') buildNotifList();
 }
 
 function sidebarBadgeFor(item) {

@@ -211,36 +211,68 @@ async function resetSharedData(){
 
 // Rafraîchit périodiquement l'état partagé pour refléter les actions des autres comptes
 let sharedSyncInterval = null;
+let sharedSyncVisibilityBound = false;
+
+function getSharedSyncIntervalMs() {
+  if (state.role === 'entreprise') return 1500;
+  if (state.role === 'etudiant') return 3000;
+  return 4000;
+}
+
 async function syncRoleDataFromDb() {
   if (state.role === 'entreprise' && state.user && state.user.entrepriseId && typeof syncEntrepriseDataFromDb === 'function') {
-    await syncEntrepriseDataFromDb(state.user);
-    return true;
+    return syncEntrepriseDataFromDb(state.user);
   }
   if (state.role === 'etudiant' && state.user && typeof syncEtudiantFromDb === 'function') {
     await syncEtudiantFromDb();
-    return true;
+    return { changed: true, newDemandes: [] };
   }
-  return false;
+  return { changed: false, newDemandes: [] };
 }
+
+async function runSharedSyncTick() {
+  const ind = document.getElementById('syncIndicator');
+  if (ind) ind.classList.add('syncing');
+  const before = JSON.stringify(sharedData);
+  await syncSharedData();
+  const syncResult = await syncRoleDataFromDb();
+  if (ind) ind.classList.remove('syncing');
+  if (syncResult && syncResult.newDemandes && syncResult.newDemandes.length && typeof notifyNewEntrepriseDemandes === 'function') {
+    notifyNewEntrepriseDemandes(syncResult.newDemandes);
+  }
+  if (state.role && (JSON.stringify(sharedData) !== before || (syncResult && syncResult.changed))) {
+    refreshCurrentView();
+  }
+}
+
+function bindSharedSyncVisibility() {
+  if (sharedSyncVisibilityBound || typeof document === 'undefined') return;
+  sharedSyncVisibilityBound = true;
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && state.role) {
+      runSharedSyncTick();
+    }
+  });
+}
+
 function startSharedSync(){
+  bindSharedSyncVisibility();
   syncSharedData().then(async function(){
     if(state.role) {
-      await syncRoleDataFromDb();
+      const syncResult = await syncRoleDataFromDb();
+      if (syncResult && syncResult.newDemandes && syncResult.newDemandes.length && typeof notifyNewEntrepriseDemandes === 'function') {
+        notifyNewEntrepriseDemandes(syncResult.newDemandes);
+      }
       refreshCurrentView();
     }
   });
   if(sharedSyncInterval) return;
-  sharedSyncInterval = setInterval(async function(){
-    const ind = document.getElementById('syncIndicator');
-    if(ind) ind.classList.add('syncing');
-    const before = JSON.stringify(sharedData);
-    await syncSharedData();
-    const dbSynced = await syncRoleDataFromDb();
-    if(ind) ind.classList.remove('syncing');
-    if(state.role && (JSON.stringify(sharedData)!==before || dbSynced)){
-      refreshCurrentView();
-    }
-  }, 4000);
+  const scheduleNext = function() {
+    sharedSyncInterval = setTimeout(function() {
+      runSharedSyncTick().finally(scheduleNext);
+    }, getSharedSyncIntervalMs());
+  };
+  scheduleNext();
 }
 
 // Recharge la page courante et les éléments dynamiques (badges, modales ouvertes)

@@ -212,6 +212,9 @@ function buildNotifList(){
   if (state.role === 'etudiant' && state.user && typeof buildStudentDashboardNotifs === 'function') {
     dynamicNotifs = buildStudentDashboardNotifs(state.user);
     list = [];
+  } else if (state.role === 'entreprise' && state.user && typeof buildEntrepriseDashboardNotifs === 'function') {
+    dynamicNotifs = buildEntrepriseDashboardNotifs();
+    list = dynamicNotifs.length ? [] : (notifications.entreprise || []);
   } else if(state.role==='universite' && state.user && state.user.type!=='universite'){
     dynamicNotifs = (sharedData.universityNotifications||[])
       .filter(n=> n.faculte===state.user.faculte &&
