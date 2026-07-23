@@ -505,19 +505,27 @@ function getStudentProgressInfo(u) {
   };
 }
 
+function getDossierTimelineDemandes(info) {
+  if (info.accepted) {
+    return info.myDem.filter(function(d) { return d.status === 'accepted'; });
+  }
+  return info.myDem.filter(function(d) { return d.status === 'pending'; });
+}
+
 function buildStudentTimelineHTML(u) {
   const info = getStudentProgressInfo(u);
+  const timelineDem = getDossierTimelineDemandes(info);
   const fmt = typeof formatDashDate === 'function' ? formatDashDate : function(d) { return d || '—'; };
   const statusLabels = { pending: 'En attente', accepted: 'Acceptée', rejected: 'Refusée', cancelled: 'Annulée' };
 
-  if (!info.myDem.length && !info.conv) {
+  if (!timelineDem.length && !info.conv && !info.accepted) {
     return '<div class="empty-state" style="padding:24px"><div class="ico">📋</div><p class="text-sm">Aucune candidature pour le moment</p><button class="btn btn-cyan btn-sm mt12" onclick="navigateTo(\'search\')">🔍 Rechercher une entreprise</button></div>';
   }
 
   let html = '<div class="timeline">';
   html += '<div class="tl-item"><div class="tl-dot done"></div><div class="tl-date">Compte actif</div><div class="tl-title">Profil étudiant connecté</div></div>';
 
-  info.myDem.slice().sort(function(a, b) {
+  timelineDem.slice().sort(function(a, b) {
     return String(a.date || '').localeCompare(String(b.date || ''));
   }).forEach(function(d) {
     const dot = d.status === 'pending' ? 'active' : (d.status === 'accepted' ? 'done' : (d.status === 'rejected' || d.status === 'cancelled' ? 'pending' : 'done'));
