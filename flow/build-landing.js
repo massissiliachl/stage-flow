@@ -983,7 +983,7 @@ function switchRegTab`
           <div class="form-group"><label class="form-label">Secteur d'activité</label><input id="reg_secteur" class="form-input" placeholder="Ex: Agroalimentaire"></div>
           <div class="form-group"><label class="form-label">Email RH (contact stages) *</label><input id="reg_email" class="form-input" type="email" placeholder="Ex: stages@cevital.com"></div>
         </div>
-        <div class="form-group"><label class="form-label">Responsable / encadrant stages</label><input id="reg_encadrant" class="form-input" placeholder="Ex: M. Hamouchi — Directeur Marketing"></div>
+        <p class="text-xs text-muted">L'encadrant de stage sera désigné lors de l'acceptation d'une candidature étudiante.</p>
 
         <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🔐 Compte de connexion</div>
         <div class="form-row">
@@ -1021,7 +1021,6 @@ async function submitRegisterEntreprise`
   const wilaya    = document.getElementById('reg_wilaya')?.value||'Béjaïa';
   const adresse   = (document.getElementById('reg_adresse')?.value||'').trim();
   const phone     = (document.getElementById('reg_phone')?.value||'').trim();
-  const encadrant = (document.getElementById('reg_encadrant')?.value||'').trim();
   const nif       = (document.getElementById('reg_nif')?.value||'').replace(/\\D/g,'');
   const nrc       = (document.getElementById('reg_nrc')?.value||'').trim();
   const nis       = (document.getElementById('reg_nis')?.value||'').trim();
@@ -1037,7 +1036,7 @@ async function submitRegisterEntreprise`
   try {
     const data = await apiJson('/api/auth/entreprise/register', {
       method: 'POST',
-      body: JSON.stringify({ nom, secteur, wilaya, adresse, phone, email, encadrant, password: pw, nif, nrc, nis }),
+      body: JSON.stringify({ nom, secteur, wilaya, adresse, phone, email, password: pw, nif, nrc, nis }),
     });
 
     const account = data.user;
