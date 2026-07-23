@@ -154,6 +154,9 @@ async function syncStudentDemandesFromDb() {
     fromDb.forEach(function(d) { demandes.push(d); });
   } catch (e) {
     console.warn('[StageFlow] Demandes étudiant (base):', e.message);
+    for (let i = demandes.length - 1; i >= 0; i--) {
+      if ((demandes[i].studentName || '') === u.name && !demandes[i].fromDb) demandes.splice(i, 1);
+    }
   }
 }
 
@@ -281,12 +284,143 @@ function getStudentConvention(u) {
 
 function studentHasRealDemandes(u) {
   if (!u || !u.name) return false;
-  return demandes.some(function(d) { return (d.studentName || '') === u.name; });
+  return getStudentDemandes(u).length > 0;
 }
 
 function getStudentDemandes(u) {
   if (!u || !u.name) return [];
-  return demandes.filter(function(d) { return (d.studentName || '') === u.name; });
+  const mine = demandes.filter(function(d) { return (d.studentName || '') === u.name; });
+  if (state.role === 'etudiant' && state.user && state.user.name === u.name) {
+    return mine.filter(function(d) { return d.fromDb; });
+  }
+  return mine;
+}
+
+function getStudentProgressInfo(u) {
+  const myDem = getStudentDemandes(u);
+  const conv = resolveStudentConv(u);
+  const accepted = myDem.find(function(d) { return d.status === 'accepted'; });
+  const pendingN = myDem.filter(function(d) { return d.status === 'pending'; }).length;
+  const rejectedN = myDem.filter(function(d) { return d.status === 'rejected'; }).length;
+  const sigCount = conv ? [conv.signed_entreprise, conv.signed_univ].filter(Boolean).length : 0;
+  const report = conv && conv.id ? state.stageReports[conv.id] : null;
+  const attestation = conv && conv.id ? state.stageAttestations[conv.id] : null;
+
+  let pct = 0;
+  if (conv && conv.status === 'archived') pct = 100;
+  else if (attestation) pct = 90;
+  else if (report) pct = 80;
+  else if (sigCount === 2) pct = 65;
+  else if (sigCount === 1) pct = 50;
+  else if (conv) pct = 40;
+  else if (accepted) pct = 25;
+  else if (myDem.length) pct = 10;
+
+  let dossierTrend = 'Aucune candidature';
+  if (conv && conv.status === 'archived') dossierTrend = 'Dossier archivé par l\'université';
+  else if (attestation) dossierTrend = 'Attestation envoyée';
+  else if (report) dossierTrend = 'Rapport déposé — attestation à compléter';
+  else if (sigCount === 2) dossierTrend = 'Convention signée — stage en cours';
+  else if (sigCount > 0) dossierTrend = 'Convention partiellement signée';
+  else if (conv) dossierTrend = 'Convention créée — signatures en attente';
+  else if (accepted) dossierTrend = 'Demande acceptée — convention en préparation';
+  else if (pendingN) dossierTrend = pendingN + ' candidature' + (pendingN > 1 ? 's' : '') + ' en attente';
+  else if (rejectedN && !myDem.some(function(d) { return d.status === 'pending' || d.status === 'accepted'; })) dossierTrend = 'Candidatures refusées';
+
+  return {
+    myDem: myDem,
+    conv: conv,
+    accepted: accepted,
+    pendingN: pendingN,
+    sigCount: sigCount,
+    pct: pct,
+    dossierTrend: dossierTrend,
+    report: report,
+    attestation: attestation,
+  };
+}
+
+function buildStudentTimelineHTML(u) {
+  const info = getStudentProgressInfo(u);
+  const fmt = typeof formatDashDate === 'function' ? formatDashDate : function(d) { return d || '—'; };
+  const statusLabels = { pending: 'En attente', accepted: 'Acceptée', rejected: 'Refusée', cancelled: 'Annulée' };
+
+  if (!info.myDem.length && !info.conv) {
+    return '<div class="empty-state" style="padding:24px"><div class="ico">📋</div><p class="text-sm">Aucune candidature pour le moment</p><button class="btn btn-cyan btn-sm mt12" onclick="navigateTo(\'search\')">🔍 Rechercher une entreprise</button></div>';
+  }
+
+  let html = '<div class="timeline">';
+  html += '<div class="tl-item"><div class="tl-dot done"></div><div class="tl-date">Compte actif</div><div class="tl-title">Profil étudiant connecté</div></div>';
+
+  info.myDem.slice().sort(function(a, b) {
+    return String(a.date || '').localeCompare(String(b.date || ''));
+  }).forEach(function(d) {
+    const dot = d.status === 'pending' ? 'active' : (d.status === 'accepted' ? 'done' : (d.status === 'rejected' || d.status === 'cancelled' ? 'pending' : 'done'));
+    html += '<div class="tl-item"><div class="tl-dot ' + dot + '"></div><div class="tl-date">' + fmt(d.date) + '</div><div class="tl-title">Candidature — ' + d.company + '</div><div class="tl-desc">' + d.theme + ' · ' + (statusLabels[d.status] || d.status) + '</div></div>';
+  });
+
+  if (info.accepted) {
+    if (info.conv) {
+      const ref = info.conv.reference || (info.conv.id ? 'SF-2026-0' + (info.conv.id + 46) : '—');
+      html += '<div class="tl-item"><div class="tl-dot done"></div><div class="tl-date">' + fmt(info.conv.dateDebut || info.accepted.date) + '</div><div class="tl-title">Convention de stage</div><div class="tl-desc">' + ref + ' — ' + info.conv.company + '</div></div>';
+      html += '<div class="tl-item"><div class="tl-dot ' + (info.sigCount === 2 ? 'done' : 'active') + '"></div><div class="tl-date">' + (info.sigCount === 2 ? 'Terminé' : 'En cours') + '</div><div class="tl-title">Signatures entreprise & doyenne</div><div class="tl-desc">' + info.sigCount + '/2 signatures' + (info.conv.signed_entreprise ? ' · Entreprise ✓' : ' · Entreprise en attente') + (info.conv.signed_univ ? ' · Doyenne ✓' : (info.conv.signed_entreprise ? ' · Doyenne en attente' : '')) + '</div></div>';
+      if (info.sigCount === 2) {
+        html += '<div class="tl-item"><div class="tl-dot ' + (info.report ? 'done' : 'active') + '"></div><div class="tl-date">' + (info.report ? 'Déposé' : 'À venir') + '</div><div class="tl-title">Rapport de stage final</div><div class="tl-desc">' + (info.report ? 'Transmis à ' + (info.report.entrepriseNom || info.conv.company) : 'À déposer en fin de période') + '</div></div>';
+        html += '<div class="tl-item"><div class="tl-dot ' + (info.attestation ? 'done' : (info.report ? 'active' : 'pending')) + '"></div><div class="tl-date">' + (info.attestation ? 'Envoyée' : 'À venir') + '</div><div class="tl-title">Attestation de stage</div><div class="tl-desc">' + (info.attestation ? 'Envoyée à ' + (info.attestation.entrepriseNom || info.conv.company) : 'Modèle pré-rempli après le rapport') + '</div></div>';
+      }
+      if (info.conv.status === 'archived') {
+        html += '<div class="tl-item"><div class="tl-dot done"></div><div class="tl-date">Terminé</div><div class="tl-title">Archivage université</div><div class="tl-desc">Dossier archivé par la doyenne</div></div>';
+      } else if (info.sigCount === 2 && info.attestation) {
+        html += '<div class="tl-item"><div class="tl-dot active"></div><div class="tl-date">En cours</div><div class="tl-title">Archivage université</div><div class="tl-desc">En attente de validation et archivage par la doyenne</div></div>';
+      }
+    } else {
+      html += '<div class="tl-item"><div class="tl-dot active"></div><div class="tl-date">En cours</div><div class="tl-title">Convention de stage</div><div class="tl-desc">Génération depuis la base pour ' + info.accepted.company + '…</div></div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function buildStudentDashboardNotifs(u) {
+  const info = getStudentProgressInfo(u);
+  const notifs = [];
+  info.myDem.filter(function(d) { return d.status === 'pending'; }).forEach(function(d) {
+    notifs.push({ icon: '⏳', color: '#FFF3CD', text: 'Candidature en attente chez ' + d.company, time: formatDashDate(d.date), read: false });
+  });
+  info.myDem.filter(function(d) { return d.status === 'accepted'; }).forEach(function(d) {
+    notifs.push({ icon: '✅', color: '#D1FAE5', text: 'Demande acceptée par ' + d.company, time: formatDashDate(d.date), read: false });
+  });
+  info.myDem.filter(function(d) { return d.status === 'rejected'; }).forEach(function(d) {
+    notifs.push({ icon: '❌', color: '#FEE2E2', text: 'Demande refusée par ' + d.company, time: formatDashDate(d.date), read: true });
+  });
+  if (info.conv && info.sigCount < 2) {
+    notifs.push({ icon: '✍️', color: '#EDE9FE', text: 'Convention ' + (info.conv.reference || '') + ' — ' + (2 - info.sigCount) + ' signature(s) en attente', time: 'En cours', read: false });
+  }
+  if (info.conv && info.sigCount === 2 && !info.report) {
+    notifs.push({ icon: '📝', color: '#DBEAFE', text: 'Déposez votre rapport de stage pour ' + info.conv.company, time: 'Action requise', read: false });
+  }
+  if (!notifs.length) {
+    notifs.push({ icon: '🔍', color: '#DBEAFE', text: 'Postulez à une entreprise inscrite pour démarrer votre dossier PFE', time: 'Maintenant', read: false });
+  }
+  return notifs.slice(0, 4);
+}
+
+function sidebarBadgeFor(item) {
+  if (state.role === 'etudiant') {
+    const u = etu();
+    if (item.id === 'demandes' && u) {
+      const n = getStudentDemandes(u).filter(function(d) { return d.status === 'pending'; }).length;
+      return n || null;
+    }
+  }
+  if (state.role === 'entreprise') {
+    if (item.id === 'ent-demandes') {
+      const n = getEntrepriseDemandes().filter(function(d) { return d.status === 'pending'; }).length;
+      return n || null;
+    }
+  }
+  return item.badge || null;
 }
 
 function resolveStudentConv(u) {

@@ -12,49 +12,25 @@ function getPageHTML(id) {
 </div>
 <div class="grid-4 mb16">
   ${(()=>{
-  const myDem = typeof getStudentDemandes==='function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name);
-  const conv = typeof resolveStudentConv==='function' ? resolveStudentConv(u) : null;
-  const accepted = myDem.find(d=>d.status==='accepted');
-  const pendingN = myDem.filter(d=>d.status==='pending').length;
-  const sigCount = conv ? [conv.signed_entreprise,conv.signed_univ].filter(Boolean).length : 0;
-  const pct = Math.round(sigCount/2*100);
+  const info = typeof getStudentProgressInfo==='function' ? getStudentProgressInfo(u) : { myDem:[], conv:null, accepted:null, pendingN:0, sigCount:0, pct:0, dossierTrend:'—' };
+  const myDem = info.myDem;
+  const conv = info.conv;
+  const accepted = info.accepted;
+  const pendingN = info.pendingN;
+  const pct = info.pct;
   const convRef = conv ? (conv.reference || (conv.id ? 'SF-2026-0'+(conv.id+46) : '—')) : '—';
-  const convCompany = conv ? (conv.company || '—') : (accepted ? accepted.company : '—');
-  const convStatus = conv ? conv.status : (accepted ? 'pending' : 'none');
-  const dossierTrend = conv && conv.status==='archived' ? 'Convention archivée' : conv && conv.status==='signed' ? 'Convention signée' : conv ? (sigCount>0 ? 'Convention partiellement signée' : 'Convention non signée') : (accepted ? 'Convention en préparation' : 'Aucune convention');
+  const convCompany = conv ? (conv.company || '—') : (accepted ? accepted.company : (myDem.length ? myDem[0].company : '—'));
   return `
   <div class="stat-card"><div class="num">${myDem.length}</div><div class="lbl">Demandes envoyées</div><div class="trend">${pendingN ? pendingN+' en attente' : myDem.length ? 'Toutes traitées' : 'Aucune candidature'}</div></div>
   <div class="stat-card"><div class="num" style="color:${accepted?'var(--success)':'var(--text3)'}">${accepted?1:0}</div><div class="lbl">Demande acceptée</div><div class="trend trend-up">${accepted ? '✅ '+accepted.company : '—'}</div></div>
-  <div class="stat-card"><div class="num" style="color:var(--accent)">${conv?pct:0}%</div><div class="lbl">Dossier complété</div><div class="trend">${dossierTrend}</div></div>
-  <div class="stat-card"><div class="num" style="font-size:16px;line-height:1.3">${conv && conv.periode ? conv.periode : (accepted && accepted.duree ? accepted.duree : '—')}</div><div class="lbl">Durée du stage</div><div class="trend" style="color:var(--cyan2)">${accepted ? accepted.company : '—'}</div></div>`;
+  <div class="stat-card"><div class="num" style="color:var(--accent)">${pct}%</div><div class="lbl">Dossier complété</div><div class="trend">${info.dossierTrend}</div></div>
+  <div class="stat-card"><div class="num" style="font-size:16px;line-height:1.3">${conv && conv.periode ? conv.periode : (accepted && accepted.duree ? accepted.duree : '—')}</div><div class="lbl">Durée du stage</div><div class="trend" style="color:var(--cyan2)">${accepted || conv ? convCompany : '—'}</div></div>`;
   })()}
 </div>
 <div class="grid-2 gap16">
   <div class="card">
     <div class="card-title">📋 Avancement du dossier</div>
-    ${(()=>{
-  const myDem = typeof getStudentDemandes==='function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name);
-  const conv = typeof resolveStudentConv==='function' ? resolveStudentConv(u) : null;
-  const accepted = myDem.find(d=>d.status==='accepted');
-  const sigCount = conv ? [conv.signed_entreprise,conv.signed_univ].filter(Boolean).length : 0;
-  const fmt = typeof formatDashDate==='function' ? formatDashDate : (d=>d||'—');
-  if(!myDem.length && !conv){
-    return '<div class="empty-state" style="padding:24px"><div class="ico">📋</div><p class="text-sm">Aucune candidature pour le moment</p><button class="btn btn-cyan btn-sm mt12" onclick="navigateTo(\'search\')">🔍 Rechercher une entreprise</button></div>';
-  }
-  let html = '<div class="timeline">';
-  html += '<div class="tl-item"><div class="tl-dot done"></div><div class="tl-date">Compte actif</div><div class="tl-title">Profil étudiant connecté</div></div>';
-  myDem.forEach(function(d){
-    html += '<div class="tl-item"><div class="tl-dot '+(d.status!=='pending'?'done':'active')+'"></div><div class="tl-date">'+fmt(d.date)+'</div><div class="tl-title">Candidature — '+d.company+'</div><div class="tl-desc">'+d.theme+' · '+({pending:'En attente',accepted:'Acceptée',rejected:'Refusée'}[d.status]||d.status)+'</div></div>';
-  });
-  if(accepted){
-    html += '<div class="tl-item"><div class="tl-dot '+(conv?'done':'active')+'"></div><div class="tl-date">'+(conv?'Convention créée':'En cours')+'</div><div class="tl-title">Convention de stage</div><div class="tl-desc">'+(conv ? (convRefLabel(conv)+' — '+conv.company) : 'Génération depuis la base…')+'</div></div>';
-    html += '<div class="tl-item"><div class="tl-dot '+(sigCount===2?'done':'active')+'"></div><div class="tl-date">'+(sigCount===2?'Terminé':'En cours')+'</div><div class="tl-title">Signatures entreprise & doyenne</div><div class="tl-desc">'+sigCount+'/2 signatures</div></div>';
-  }
-  html += '<div class="tl-item"><div class="tl-dot '+(conv&&conv.status==='archived'?'done':'pending')+'"></div><div class="tl-date">'+(conv&&conv.status==='archived'?'Terminé':'À venir')+'</div><div class="tl-title">Archivage université</div></div>';
-  html += '</div>';
-  return html;
-  function convRefLabel(c){ return c.reference || (c.id ? 'SF-2026-0'+(c.id+46) : '—'); }
-  })()}
+    ${typeof buildStudentTimelineHTML==='function' ? buildStudentTimelineHTML(u) : ''}
   </div>
   <div>
     <div class="card mb16">
@@ -63,6 +39,10 @@ function getPageHTML(id) {
   const conv = typeof resolveStudentConv==='function' ? resolveStudentConv(u) : null;
   const accepted = (typeof getStudentDemandes==='function'?getStudentDemandes(u):[]).find(d=>d.status==='accepted');
   if(!conv && !accepted){
+    const pending = (typeof getStudentDemandes==='function'?getStudentDemandes(u):[]).filter(d=>d.status==='pending');
+    if (pending.length) {
+      return '<div class="empty-state" style="padding:20px"><div class="ico">⏳</div><p class="text-sm">' + pending.length + ' candidature' + (pending.length>1?'s':'') + ' en attente de réponse</p><p class="text-xs text-muted mt8">' + pending.map(function(d){ return d.company; }).join(' · ') + '</p><button class="btn btn-ghost btn-sm mt12" onclick="navigateTo(\'demandes\')">Voir mes demandes</button></div>';
+    }
     return '<div class="empty-state" style="padding:20px"><div class="ico">📄</div><p class="text-sm text-muted">Postulez à une entreprise pour générer votre convention</p><button class="btn btn-cyan btn-sm mt12" onclick="navigateTo(\'search\')">🔍 Rechercher</button></div>';
   }
   if(!conv && accepted){
@@ -87,11 +67,14 @@ function getPageHTML(id) {
     </div>
     <div class="card">
       <div class="card-title">🔔 Notifications récentes</div>
-      ${notifications.etudiant.slice(0,2).map(n=>`
+      ${(()=>{
+  const notifs = typeof buildStudentDashboardNotifs==='function' ? buildStudentDashboardNotifs(u) : (notifications.etudiant||[]).slice(0,2);
+  return notifs.map(n=>`
         <div class="notif-item ${n.read?'':'notif-unread'}">
           <div class="notif-ico" style="background:${n.color}">${n.icon}</div>
           <div><p>${n.text}</p><div class="time">${n.time}</div></div>
-        </div>`).join('')}
+        </div>`).join('');
+  })()}
     </div>
   </div>
 </div>`,
@@ -124,7 +107,7 @@ function getPageHTML(id) {
   <h2>📋 Mes demandes de stage</h2>
   <p>Suivez l'état de toutes vos candidatures</p>
 </div>
-${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name);
+${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name);
   const accepted = myDemandes.find(d=>d.status==='accepted'); const pendingCount = myDemandes.filter(d=>d.status==='pending').length;
   if(!accepted || !pendingCount) return '';
   return `
@@ -146,7 +129,7 @@ ${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name);
     <table>
       <thead><tr><th>Entreprise</th><th>Thème proposé</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
-        ${(()=>{ const myDemandes = demandes.filter(d=>(d.studentName||'')===u.name);
+        ${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name);
           if(!myDemandes.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune candidature envoyée pour le moment</td></tr>';
           return myDemandes.map(d=>{
             const matchingConv = conventions.find(c=>c.fromDb && (c.etudiant||'')===u.name && (c.company===d.company || (d.entrepriseId && c.entrepriseId===d.entrepriseId)))
@@ -179,7 +162,7 @@ ${(()=>{
     : conventions.find(c=>(c.etudiant||'').includes(u.name.split(' ')[0]));
 
   if(!myConv){
-    const acceptedDem = demandes.find(d=>(d.studentName||'')===u.name && d.status==='accepted');
+    const acceptedDem = (typeof getStudentDemandes==='function'?getStudentDemandes(u):[]).find(d=>d.status==='accepted');
     if(acceptedDem){
       return `
 <div class="card">

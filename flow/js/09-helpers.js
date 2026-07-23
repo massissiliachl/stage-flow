@@ -207,10 +207,12 @@ function barChart(data){
 }
 
 function buildNotifList(){
-  const list = notifications[state.role]||[];
-  // Pour les comptes université (faculté/département), ajouter les notifications d'accord dynamiques
+  let list = notifications[state.role]||[];
   let dynamicNotifs = [];
-  if(state.role==='universite' && state.user && state.user.type!=='universite'){
+  if (state.role === 'etudiant' && state.user && typeof buildStudentDashboardNotifs === 'function') {
+    dynamicNotifs = buildStudentDashboardNotifs(state.user);
+    list = [];
+  } else if(state.role==='universite' && state.user && state.user.type!=='universite'){
     dynamicNotifs = (sharedData.universityNotifications||[])
       .filter(n=> n.faculte===state.user.faculte &&
         (state.user.type==='faculte' || n.departement===state.user.departement))

@@ -5,14 +5,14 @@ const menus = {
   etudiant:[
     { labelKey:'nav_dashboard', id:'dashboard', icon:'📊' },
     { labelKey:'nav_search', id:'search', icon:'🔍' },
-    { labelKey:'nav_demandes', id:'demandes', icon:'📋', badge:2 },
+    { labelKey:'nav_demandes', id:'demandes', icon:'📋' },
     { labelKey:'nav_convention', id:'convention', icon:'📄' },
     { labelKey:'nav_dossier', id:'dossier', icon:'📁' },
     { labelKey:'nav_profil', id:'profil', icon:'👤' }
   ],
   entreprise:[
     { labelKey:'nav_ent_dashboard', id:'ent-dashboard', icon:'📊' },
-    { labelKey:'nav_ent_demandes', id:'ent-demandes', icon:'📩', badge:1 },
+    { labelKey:'nav_ent_demandes', id:'ent-demandes', icon:'📩' },
     { labelKey:'nav_ent_conventions', id:'ent-conventions', icon:'📄' },
     { labelKey:'nav_ent_stagiaires', id:'ent-stagiaires', icon:'👥' },
     { labelKey:'nav_ent_profil', id:'ent-profil', icon:'🏢' }
@@ -52,9 +52,9 @@ function buildSidebar() {
   }
   const scopeLabel = state.role==='universite' ? scopeLabelHTML() : '';
   document.getElementById('sidebar').innerHTML = `${scopeLabel}<div class="sidebar-section"><div class="sidebar-label">${t('nav_section_title')}</div>${
-    items.map(i=>`<button class="nav-item" id="nav-${i.id}" onclick="navigateTo('${i.id}')">
-      <span class="nav-icon">${i.icon}</span>${t(i.labelKey)}${i.badge?`<span class="nav-badge">${i.badge}</span>`:''}
-    </button>`).join('')}</div>`;
+    items.map(i=>{ const badge = typeof sidebarBadgeFor==='function' ? sidebarBadgeFor(i) : i.badge; return `<button class="nav-item" id="nav-${i.id}" onclick="navigateTo('${i.id}')">
+      <span class="nav-icon">${i.icon}</span>${t(i.labelKey)}${badge?`<span class="nav-badge">${badge}</span>`:''}
+    </button>`; }).join('')}</div>`;
 }
 
 function scopeLabelHTML(){
