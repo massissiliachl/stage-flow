@@ -133,11 +133,13 @@ ${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentD
           if(!myDemandes.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune candidature envoyée pour le moment</td></tr>';
           return myDemandes.map(d=>{
             const matchingConv = conventions.find(function(c) {
-              return c.fromDb && typeof conventionBelongsToStudent === 'function'
-                ? conventionBelongsToStudent(c, u)
-                : ((c.etudiant || '') === u.name && (c.company === d.company || (d.entrepriseId && c.entrepriseId === d.entrepriseId)));
+              if (!c.fromDb) return false;
+              if (typeof conventionBelongsToStudent === 'function') return conventionBelongsToStudent(c, u);
+              return (c.etudiant || '') === u.name
+                && (c.company === d.company || (d.entrepriseId && c.entrepriseId === d.entrepriseId));
+            }) || conventions.find(function(c) {
+              return c.company === d.company && (c.etudiant || '').includes(u.name.split(' ')[0]);
             });
-              || conventions.find(c=>c.company===d.company && (c.etudiant||'').includes(u.name.split(' ')[0]));
           return `<tr>
           <td style="display:flex;align-items:center;gap:10px;padding:12px 14px">
             <div style="width:32px;height:32px;border-radius:6px;overflow:hidden;flex-shrink:0">${(companyLogos[d.company]||{svg:''}).svg||`<div style="width:32px;height:32px;background:var(--navy);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700">${d.company.slice(0,2)}</div>`}</div>
