@@ -485,7 +485,8 @@ async function accepterDemandeById(demandeId, encadrant){
       setTimeout(() => openConventionById(data.convention.id), 400);
     }
   } catch (err) {
-    showToast('❌ ' + (err.message || 'Acceptation impossible'));
+    const detail = err.details && err.details.detail;
+    showToast('❌ ' + (err.message || 'Acceptation impossible') + (detail ? ' — ' + detail : ''));
   }
 }
 

@@ -2,6 +2,20 @@ const { mapConventionRow, buildPartiesSnapshot, parseSignaturesJson } = require(
 const { computeDocumentHash, computeFinalIntegrityHash, HASH_ALGORITHM } = require('./convention-hash');
 const { computeStageDates } = require('./stage-dates');
 
+async function runConventionAttempts(label, attempts) {
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const result = await attempt.run();
+      return result.rows[0];
+    } catch (err) {
+      lastErr = err;
+      console.warn(`${label} (${attempt.name}) — échec:`, err.message);
+    }
+  }
+  throw lastErr || new Error(`${label} impossible`);
+}
+
 async function updateConventionRow(client, row, payload) {
   const {
     signaturesJson,
@@ -14,51 +28,67 @@ async function updateConventionRow(client, row, payload) {
     documentHash,
   } = payload;
 
-  try {
-    const upd = await client.query(
-      `UPDATE conventions SET
-         signatures = $2::jsonb,
-         theme = $3,
-         faculte = $4,
-         departement = $5,
-         periode = $6,
-         date_debut = $7,
-         date_fin = $8,
-         document_hash = $9,
-         hash_algorithm = $10,
-         updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [
-        row.id,
-        signaturesJson,
-        theme,
-        faculte,
-        departement,
-        periode,
-        dateDebut,
-        dateFin,
-        documentHash,
-        HASH_ALGORITHM,
-      ]
-    );
-    return upd.rows[0];
-  } catch (err) {
-    console.warn('Convention update (schéma étendu) — repli:', err.message);
-    const upd = await client.query(
-      `UPDATE conventions SET
-         signatures = $2::jsonb,
-         theme = $3,
-         faculte = $4,
-         departement = $5,
-         periode = $6,
-         updated_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
-      [row.id, signaturesJson, theme, faculte, departement, periode]
-    );
-    return upd.rows[0];
-  }
+  return runConventionAttempts('Convention update', [
+    {
+      name: 'schéma étendu',
+      run: () => client.query(
+        `UPDATE conventions SET
+           signatures = $2::jsonb,
+           theme = $3,
+           faculte = $4,
+           departement = $5,
+           periode = $6,
+           date_debut = $7,
+           date_fin = $8,
+           document_hash = $9,
+           hash_algorithm = $10,
+           updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [
+          row.id,
+          signaturesJson,
+          theme,
+          faculte,
+          departement,
+          periode,
+          dateDebut,
+          dateFin,
+          documentHash,
+          HASH_ALGORITHM,
+        ]
+      ),
+    },
+    {
+      name: 'schéma intermédiaire',
+      run: () => client.query(
+        `UPDATE conventions SET
+           signatures = $2::jsonb,
+           theme = $3,
+           faculte = $4,
+           departement = $5,
+           periode = $6,
+           updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [row.id, signaturesJson, theme, faculte, departement, periode]
+      ),
+    },
+    {
+      name: 'schéma minimal',
+      run: () => client.query(
+        `UPDATE conventions SET
+           theme = $2,
+           faculte = $3,
+           departement = $4,
+           periode = $5,
+           updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [row.id, theme, faculte, departement, periode]
+      ),
+    },
+  ]);
 }
 
 async function insertConventionRow(client, payload) {
@@ -79,53 +109,110 @@ async function insertConventionRow(client, payload) {
   } = payload;
 
   try {
-    const convRes = await client.query(
-      `INSERT INTO conventions (
-         reference, student_id, student_name, entreprise_id, entreprise_nom,
-         theme, periode, status, faculte, departement, is_generated, signatures,
-         document_hash, hash_algorithm, date_debut, date_fin
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb, $11, $12, $13, $14)
-       RETURNING *`,
-      [
-        reference,
-        studentId,
-        studentName,
-        entrepriseId,
-        entrepriseNom,
-        theme,
-        periode,
-        faculte,
-        departement,
-        signaturesPayload,
-        documentHash,
-        HASH_ALGORITHM,
-        dateDebut,
-        dateFin,
-      ]
-    );
-    return convRes.rows[0];
+    return await runConventionAttempts('Convention insert', [
+      {
+        name: 'schéma étendu',
+        run: () => client.query(
+          `INSERT INTO conventions (
+             reference, student_id, student_name, entreprise_id, entreprise_nom,
+             theme, periode, status, faculte, departement, is_generated, signatures,
+             document_hash, hash_algorithm, date_debut, date_fin
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb, $11, $12, $13, $14)
+           RETURNING *`,
+          [
+            reference,
+            studentId,
+            studentName,
+            entrepriseId,
+            entrepriseNom,
+            theme,
+            periode,
+            faculte,
+            departement,
+            signaturesPayload,
+            documentHash,
+            HASH_ALGORITHM,
+            dateDebut,
+            dateFin,
+          ]
+        ),
+      },
+      {
+        name: 'schéma intermédiaire',
+        run: () => client.query(
+          `INSERT INTO conventions (
+             reference, student_id, student_name, entreprise_id, entreprise_nom,
+             theme, periode, status, faculte, departement, is_generated, signatures
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb)
+           RETURNING *`,
+          [
+            reference,
+            studentId,
+            studentName,
+            entrepriseId,
+            entrepriseNom,
+            theme,
+            periode,
+            faculte,
+            departement,
+            signaturesPayload,
+          ]
+        ),
+      },
+      {
+        name: 'schéma sans is_generated',
+        run: () => client.query(
+          `INSERT INTO conventions (
+             reference, student_id, student_name, entreprise_id, entreprise_nom,
+             theme, periode, status, faculte, departement, signatures
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10::jsonb)
+           RETURNING *`,
+          [
+            reference,
+            studentId,
+            studentName,
+            entrepriseId,
+            entrepriseNom,
+            theme,
+            periode,
+            faculte,
+            departement,
+            signaturesPayload,
+          ]
+        ),
+      },
+      {
+        name: 'schéma minimal',
+        run: () => client.query(
+          `INSERT INTO conventions (
+             reference, student_name, entreprise_id, entreprise_nom,
+             theme, periode, status, faculte, departement
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
+           RETURNING *`,
+          [
+            reference,
+            studentName,
+            entrepriseId,
+            entrepriseNom,
+            theme,
+            periode,
+            faculte,
+            departement,
+          ]
+        ),
+      },
+    ]);
   } catch (err) {
-    console.warn('Convention insert (schéma étendu) — repli:', err.message);
-    const convRes = await client.query(
-      `INSERT INTO conventions (
-         reference, student_id, student_name, entreprise_id, entreprise_nom,
-         theme, periode, status, faculte, departement, is_generated, signatures
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, TRUE, $10::jsonb)
-       RETURNING *`,
-      [
-        reference,
-        studentId,
-        studentName,
-        entrepriseId,
-        entrepriseNom,
-        theme,
-        periode,
-        faculte,
-        departement,
-        signaturesPayload,
-      ]
-    );
-    return convRes.rows[0];
+    if (err.code === '23505') {
+      console.warn('Convention insert — référence dupliquée, nouvel essai:', err.message);
+      const newRef = await nextConventionReference(client);
+      return insertConventionRow(client, { ...payload, reference: newRef });
+    }
+    if (err.code === '23503' && studentId) {
+      console.warn('Convention insert — repli sans student_id (FK):', err.message);
+      return insertConventionRow(client, { ...payload, studentId: null });
+    }
+    throw err;
   }
 }
 
@@ -138,7 +225,12 @@ async function nextConventionReference(client) {
   const year = new Date().getFullYear();
   const result = await client.query('SELECT COALESCE(MAX(id), 0) + 1 AS n FROM conventions');
   const num = Number(result.rows[0].n) + 46;
-  return `SF-${year}-${String(num).padStart(3, '0')}`;
+  let reference = `SF-${year}-${String(num).padStart(3, '0')}`;
+  const clash = await client.query('SELECT 1 FROM conventions WHERE reference = $1 LIMIT 1', [reference]);
+  if (clash.rows.length) {
+    reference = `SF-${year}-${String(Date.now()).slice(-6)}`;
+  }
+  return reference;
 }
 
 async function resolveEncadrant(client, demand, encadrant) {

@@ -65,6 +65,49 @@ function mapConventionRow(row) {
 }
 
 async function buildPartiesSnapshot(client, demand, encadrantEnt) {
+  try {
+    return await buildPartiesSnapshotFull(client, demand, encadrantEnt);
+  } catch (err) {
+    console.warn('buildPartiesSnapshot — repli minimal:', err.message);
+    return buildPartiesSnapshotMinimal(demand, encadrantEnt);
+  }
+}
+
+function buildPartiesSnapshotMinimal(demand, encadrantEnt) {
+  return {
+    student: {
+      name: demand.student_name,
+      email: '',
+      matricule: '',
+      specialty: demand.departement || '',
+      university: 'Université Abderrahmane Mira — Béjaïa',
+      theme: demand.theme || '',
+      faculte: demand.faculte || '',
+      departement: demand.departement || '',
+      duree: (demand.duree || '').trim() || '2 mois',
+      promotion: '',
+      binome: null,
+      groupType: 'solo',
+      groupMembers: [],
+    },
+    entreprise: {
+      nom: demand.entreprise_nom,
+      identifiant: '',
+      secteur: '',
+      wilaya: '',
+      adresse: '',
+      phone: '',
+      email: '',
+      nif: '',
+      nrc: '',
+      nis: '',
+      encadrant: encadrantEnt || '—',
+      representant: 'Direction RH',
+    },
+  };
+}
+
+async function buildPartiesSnapshotFull(client, demand, encadrantEnt) {
   const entRes = await client.query(
     `SELECT
        e.nom, e.secteur, e.wilaya, e.adresse, e.phone, e.email_contact,
@@ -126,18 +169,34 @@ async function buildPartiesSnapshot(client, demand, encadrantEnt) {
   };
 
   const loadStudent = async (userId) => {
-    const stuRes = await client.query(
-      `SELECT
-         u.email, u.display_name, u.student_data, u.binome, u.theme, u.encadrant,
-         s.matricule, s.specialty, s.promotion, s.faculte, s.departement
-       FROM users u
-       LEFT JOIN students s ON s.user_id = u.id
-       WHERE u.id = $1
-       LIMIT 1`,
-      [userId]
-    );
-    if (!stuRes.rows.length) return;
-    applyStudentRow(stuRes.rows[0]);
+    try {
+      const stuRes = await client.query(
+        `SELECT
+           u.email, u.display_name, u.student_data, u.binome, u.theme, u.encadrant,
+           s.matricule, s.specialty, s.promotion, s.faculte, s.departement
+         FROM users u
+         LEFT JOIN students s ON s.user_id = u.id
+         WHERE u.id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      if (!stuRes.rows.length) return;
+      applyStudentRow(stuRes.rows[0]);
+    } catch (err) {
+      console.warn('loadStudent (schéma étendu) — repli:', err.message);
+      const stuRes = await client.query(
+        `SELECT
+           u.email, u.display_name,
+           s.matricule, s.specialty, s.promotion, s.faculte, s.departement
+         FROM users u
+         LEFT JOIN students s ON s.user_id = u.id
+         WHERE u.id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      if (!stuRes.rows.length) return;
+      applyStudentRow(stuRes.rows[0]);
+    }
   };
 
   if (demand.student_id) {

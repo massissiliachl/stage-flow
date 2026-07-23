@@ -267,8 +267,11 @@ demandesRouter.patch('/:demandeId/accept', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Accept demande error:', err.message);
-    res.status(500).json({ error: 'Erreur lors de l\'acceptation de la demande' });
+    console.error('Accept demande error:', err.message, err.stack);
+    res.status(500).json({
+      error: 'Erreur lors de l\'acceptation de la demande',
+      detail: err.message,
+    });
   } finally {
     client.release();
   }
