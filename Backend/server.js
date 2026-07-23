@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
       demandes: 'GET|POST /api/demandes',
       acceptDemande: 'PATCH /api/demandes/:id/accept',
       rejectDemande: 'PATCH /api/demandes/:id/reject',
+      cancelDemande: 'PATCH /api/demandes/:id/cancel',
       conventions: 'GET /api/conventions?studentName=...',
     },
   });

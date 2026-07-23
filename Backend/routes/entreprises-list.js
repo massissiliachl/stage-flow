@@ -323,6 +323,57 @@ demandesRouter.patch('/:demandeId/reject', async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/demandes/:demandeId/cancel
+ * Annulation d'une demande en attente par l'étudiant
+ */
+demandesRouter.patch('/:demandeId/cancel', async (req, res) => {
+  const demandeId = parseInt(req.params.demandeId, 10);
+  const { studentName } = req.body || {};
+  const nameTrim = (studentName || '').trim();
+
+  if (!demandeId || Number.isNaN(demandeId)) {
+    return res.status(400).json({ error: 'Identifiant demande invalide' });
+  }
+  if (!nameTrim) {
+    return res.status(400).json({ error: 'Nom étudiant requis' });
+  }
+
+  try {
+    const pool = getPool();
+    const existing = await pool.query('SELECT * FROM stage_demands WHERE id = $1', [demandeId]);
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+
+    const demand = existing.rows[0];
+    if (demand.student_name !== nameTrim) {
+      return res.status(403).json({ error: 'Cette demande ne vous appartient pas' });
+    }
+    if (demand.status !== 'pending') {
+      return res.status(409).json({ error: 'Seules les demandes en attente peuvent être annulées' });
+    }
+
+    const result = await pool.query(
+      `UPDATE stage_demands SET status = 'cancelled', updated_at = NOW() WHERE id = $1
+       RETURNING *`,
+      [demandeId]
+    );
+    const row = result.rows[0];
+
+    res.json({
+      message: 'Demande annulée',
+      demande: {
+        ...mapDemandeRow(row),
+        studentLabel: row.student_name,
+      },
+    });
+  } catch (err) {
+    console.error('Cancel demande error:', err.message);
+    res.status(500).json({ error: 'Erreur lors de l\'annulation de la demande' });
+  }
+});
+
 demandesRouter.get('/', async (req, res) => {
   const studentName = (req.query.studentName || '').trim();
   if (!studentName) {

@@ -324,24 +324,58 @@ async function submitDemande(companyName){
 }
 
 function annulerDemande(id){
+  annulerDemandeById(id);
+}
+
+async function annulerDemandeById(id){
   const d = demandes.find(x=>x.id===id);
-  if(!d){ showToast('🗑️ Demande annulée'); return; }
-  d.status = 'cancelled';
-  persistDemandeState(id);
-  showToast(`🗑️ Demande à ${d.company} annulée`);
-  refreshCurrentView();
+  if(!d){ showToast('⚠️ Demande introuvable'); return; }
+  if(d.status !== 'pending'){
+    showToast('ℹ️ Seules les demandes en attente peuvent être annulées');
+    return;
+  }
+  const u = etu();
+  if(!u || !u.name){
+    showToast('⚠️ Connectez-vous en tant qu\'étudiant');
+    return;
+  }
+
+  try {
+    const data = await apiJson('/api/demandes/' + id + '/cancel', {
+      method: 'PATCH',
+      body: JSON.stringify({ studentName: u.name }),
+    });
+    mergeDemandeFromApi(id, data.demande);
+    persistDemandeState(id);
+    showToast(`🗑️ Demande à ${d.company} annulée — enregistrée en base`);
+    refreshCurrentView();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Annulation impossible'));
+  }
 }
 
 // Annule automatiquement toutes les demandes en attente une fois qu'un accord est trouvé
-function annulerAutresDemandes(){
-  const pendingOnes = demandes.filter(d=>d.status==='pending');
+async function annulerAutresDemandes(){
+  const u = etu();
+  if(!u || !u.name){ showToast('⚠️ Connectez-vous en tant qu\'étudiant'); return; }
+  const pendingOnes = (typeof getStudentDemandes === 'function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name))
+    .filter(d=>d.status==='pending');
   if(!pendingOnes.length){ showToast('ℹ️ Aucune autre demande en attente'); return; }
-  pendingOnes.forEach(d=>{
-    d.status = 'cancelled';
-    persistDemandeState(d.id);
-  });
-  showToast(`🗑️ ${pendingOnes.length} demande(s) en attente annulée(s) — vous avez déjà un accord`);
-  refreshCurrentView();
+
+  try {
+    for (const d of pendingOnes) {
+      const data = await apiJson('/api/demandes/' + d.id + '/cancel', {
+        method: 'PATCH',
+        body: JSON.stringify({ studentName: u.name }),
+      });
+      mergeDemandeFromApi(d.id, data.demande);
+      persistDemandeState(d.id);
+    }
+    showToast(`🗑️ ${pendingOnes.length} demande(s) en attente annulée(s) — vous avez déjà un accord`);
+    refreshCurrentView();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Annulation impossible'));
+  }
 }
 
 function accepterDemande(n){
