@@ -65,9 +65,13 @@ function mapConventionRow(row) {
 }
 
 async function buildPartiesSnapshot(client, demand, encadrantEnt) {
+  await client.query('SAVEPOINT parties_snapshot');
   try {
-    return await buildPartiesSnapshotFull(client, demand, encadrantEnt);
+    const result = await buildPartiesSnapshotFull(client, demand, encadrantEnt);
+    await client.query('RELEASE SAVEPOINT parties_snapshot');
+    return result;
   } catch (err) {
+    await client.query('ROLLBACK TO SAVEPOINT parties_snapshot');
     console.warn('buildPartiesSnapshot — repli minimal:', err.message);
     return buildPartiesSnapshotMinimal(demand, encadrantEnt);
   }
@@ -169,6 +173,7 @@ async function buildPartiesSnapshotFull(client, demand, encadrantEnt) {
   };
 
   const loadStudent = async (userId) => {
+    await client.query('SAVEPOINT load_student');
     try {
       const stuRes = await client.query(
         `SELECT
@@ -180,9 +185,14 @@ async function buildPartiesSnapshotFull(client, demand, encadrantEnt) {
          LIMIT 1`,
         [userId]
       );
-      if (!stuRes.rows.length) return;
+      if (!stuRes.rows.length) {
+        await client.query('RELEASE SAVEPOINT load_student');
+        return;
+      }
       applyStudentRow(stuRes.rows[0]);
+      await client.query('RELEASE SAVEPOINT load_student');
     } catch (err) {
+      await client.query('ROLLBACK TO SAVEPOINT load_student');
       console.warn('loadStudent (schéma étendu) — repli:', err.message);
       const stuRes = await client.query(
         `SELECT

@@ -2,14 +2,19 @@ const { mapConventionRow, buildPartiesSnapshot, parseSignaturesJson } = require(
 const { computeDocumentHash, computeFinalIntegrityHash, HASH_ALGORITHM } = require('./convention-hash');
 const { computeStageDates } = require('./stage-dates');
 
-async function runConventionAttempts(label, attempts) {
+async function runConventionAttempts(client, label, attempts) {
   let lastErr;
-  for (const attempt of attempts) {
+  for (let i = 0; i < attempts.length; i += 1) {
+    const attempt = attempts[i];
+    const savepoint = `conv_attempt_${label.replace(/\W+/g, '_')}_${i}`;
+    await client.query(`SAVEPOINT ${savepoint}`);
     try {
       const result = await attempt.run();
+      await client.query(`RELEASE SAVEPOINT ${savepoint}`);
       return result.rows[0];
     } catch (err) {
       lastErr = err;
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
       console.warn(`${label} (${attempt.name}) — échec:`, err.message);
     }
   }
@@ -28,7 +33,7 @@ async function updateConventionRow(client, row, payload) {
     documentHash,
   } = payload;
 
-  return runConventionAttempts('Convention update', [
+  return runConventionAttempts(client, 'Convention update', [
     {
       name: 'schéma étendu',
       run: () => client.query(
@@ -109,7 +114,7 @@ async function insertConventionRow(client, payload) {
   } = payload;
 
   try {
-    return await runConventionAttempts('Convention insert', [
+    return await runConventionAttempts(client, 'Convention insert', [
       {
         name: 'schéma étendu',
         run: () => client.query(
