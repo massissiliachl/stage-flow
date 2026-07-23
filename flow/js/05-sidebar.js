@@ -93,5 +93,9 @@ function navigateTo(pageId) {
     syncEntrepriseStageDocsFromDb().finally(renderPage);
     return;
   }
+  if (state.role === 'entreprise' && ['ent-dashboard', 'ent-demandes', 'ent-conventions'].includes(pageId) && typeof syncEntrepriseDataFromDb === 'function' && state.user && state.user.entrepriseId) {
+    syncEntrepriseDataFromDb(state.user).finally(renderPage);
+    return;
+  }
   renderPage();
 }

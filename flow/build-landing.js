@@ -216,18 +216,6 @@ function enterEntrepriseApp`
   }
   if (file === '04-auth.js') {
     code = code.replace(
-      /<div class="auth-demo-row" onclick="fillCompanyLogin\('CEVITALAGRO','13102026'\)">[\s\S]*?<\/div>\s*<\/div>`;/,
-      `<div class="auth-demo-row" onclick="fillCompanyLogin('CEVITALAGRO','13102026')">
-        <span class="auth-demo-type">Entreprise</span>
-        <span class="auth-demo-email">Cevital</span>
-      </div>
-    </div>
-    <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
-      Pas encore de compte ?
-      <a href="#" onclick="showEntrepriseRegisterForm();return false;" style="color:var(--cyan2);font-weight:600">Créer un compte entreprise</a>
-    </p>\`;`
-    );
-    code = code.replace(
       /const account = \{ \.\.\.data\.user, password \};\s*\n\s*if \(account\.email\) registeredAccounts\.entreprise\[account\.email\] = account;\s*\n\s*enterEntrepriseApp\(account\);\s*\n\s*showToast\('✅ Connexion réussie — bienvenue !'\);\s*\n\s*return;\s*\n\s*\} catch \(err\) \{[\s\S]*?showToast\('❌ ' \+ \(err\.message \|\| 'Identifiant ou mot de passe incorrect'\)\);\s*\n\s*\}/,
       `await syncEntrepriseDataFromDb(data.user);
     enterEntrepriseApp(data.user);
@@ -1382,7 +1370,7 @@ function writeEntry(name, initCall) {
   window.logout = function(){ window.location.href = 'index.html'; };
   if (location.protocol === 'file:') {
     var page = (location.pathname.split(/[/\\\\]/).pop() || 'index.html');
-    window.location.replace('https://stage-flow-6rl5.onrender.com/' + page + location.search);
+    window.location.replace('https://stageflow-9775.onrender.com/' + page + location.search);
     return;
   }
   ${initCall}
@@ -1391,8 +1379,15 @@ function writeEntry(name, initCall) {
   fs.writeFileSync(path.join(jsDir, 'entry-' + name + '.js'), content, 'utf8');
 }
 
-writeEntry('etudiant', `loadCompaniesFromDb().finally(function(){
-    openStudentLoginModal();
+writeEntry('etudiant', `window.showStudentRegisterForm = function(){
+    openStudentRegisterModal();
+  };
+  loadCompaniesFromDb().finally(function(){
+    if (new URLSearchParams(window.location.search).get('register')) {
+      openStudentRegisterModal();
+    } else {
+      openStudentLoginModal();
+    }
   });`);
 writeEntry('entreprise', `window.showEntrepriseRegisterForm = function(){
     _closeOverlay('companyLoginModal');

@@ -16,12 +16,19 @@
   };
 
   window.logout = function(){ window.location.href = 'index.html'; };
+  window.showStudentRegisterForm = function(){
+    openStudentRegisterModal();
+  };
   if (location.protocol === 'file:') {
     var page = (location.pathname.split(/[/\\]/).pop() || 'index.html');
-    window.location.replace('https://stage-flow-6rl5.onrender.com/' + page + location.search);
+    window.location.replace('https://stageflow-9775.onrender.com/' + page + location.search);
     return;
   }
   loadCompaniesFromDb().finally(function(){
-    openStudentRegisterModal();
+    if (new URLSearchParams(window.location.search).get('register')) {
+      openStudentRegisterModal();
+    } else {
+      openStudentLoginModal();
+    }
   });
 })();

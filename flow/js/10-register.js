@@ -162,6 +162,7 @@ function collectStudentGroupMembers(groupType){
 }
 
 function openStudentRegisterModal(){
+  setStudentAuthModalSize('register');
   document.getElementById('studentLoginModal').classList.add('open');
   const title = document.querySelector('#studentLoginModal .modal-title');
   if (title) title.textContent = '🎓 Inscription Étudiant';
@@ -260,13 +261,9 @@ async function submitRegisterEntreprise(){
     });
 
     const account = data.user;
-    const nextId = Math.max(...companies.map(c=>c.id), 0) + 1;
-    if(!companies.some(c=>c.name===nom)){
-      companies.push({ id:nextId, name:nom, domain:'Commerce & Distribution', sector:secteur||'À définir', wilaya, offers:1, rating:0, tags:[specialiteToTag(secteur)] });
-    }
-
     closeOverlay('registerModal');
     showToast(`✅ Compte créé en base — identifiant : ${data.identifiant}`);
+    await loadCompaniesFromDb();
     await syncEntrepriseDataFromDb(account);
     setTimeout(()=> enterEntrepriseApp(account), 800);
   } catch (err) {

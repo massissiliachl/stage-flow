@@ -177,8 +177,9 @@ function filterCompanies(){
   const q = (document.getElementById('searchInput')?.value||'').toLowerCase().trim();
   const domain = document.getElementById('domainFilter')?.value || 'Tous les domaines';
   const wilaya = document.getElementById('wilayaFilter')?.value || 'Toutes les wilayas';
+  const source = typeof getRegisteredCompanies === 'function' ? getRegisteredCompanies() : companies.filter(function(c) { return c.fromDb; });
 
-  const filtered = companies.filter(c=>{
+  const filtered = source.filter(c=>{
     const matchesQuery = !q || c.name.toLowerCase().includes(q) || c.sector.toLowerCase().includes(q)
       || (c.domain||'').toLowerCase().includes(q) || c.tags.some(t=>t.toLowerCase().includes(q));
     const matchesDomain = domain==='Tous les domaines' || c.domain===domain;
@@ -188,6 +189,10 @@ function filterCompanies(){
 
   const grid = document.getElementById('companyGrid');
   if(!grid) return;
+  if (!source.length) {
+    grid.innerHTML = typeof companiesSearchEmptyHTML === 'function' ? companiesSearchEmptyHTML() : '<div class="empty-state" style="grid-column:1/-1"><p>Aucune entreprise inscrite</p></div>';
+    return;
+  }
   grid.innerHTML = filtered.length
     ? filtered.map(c=>companyCardHTML(c)).join('')
     : `<div class="empty-state" style="grid-column:1/-1"><div class="ico">🔍</div><p>Aucun résultat pour ces critères</p></div>`;
@@ -237,10 +242,15 @@ function openDemande(id,name){
     showToast('🔒 Convention signée — vous ne pouvez plus postuler à un autre stage');
     return;
   }
-  state.currentCompanyId = id;
-  state.currentCompanyName = name;
+  const company = companies.find(function(c) { return Number(c.id) === Number(id); });
+  if (!company || !company.fromDb) {
+    showToast('⚠️ Entreprise indisponible — rechargez la liste depuis le menu Recherche');
+    return;
+  }
+  state.currentCompanyId = company.id;
+  state.currentCompanyName = company.name || name;
   const u = etu();
-  document.getElementById('demandeModalTitle').textContent = `Postuler chez ${name}`;
+  document.getElementById('demandeModalTitle').textContent = `Postuler chez ${state.currentCompanyName}`;
   document.getElementById('demandeModalContent').innerHTML = `
     <div class="form-group"><label class="form-label">Thème proposé</label><input id="demandeTheme" class="form-input" value="${u.theme || ''}"></div>
     <div class="form-group"><label class="form-label">Durée souhaitée</label><input id="demandeDuree" class="form-input" value="${u.periode || '2 mois'}"></div>
@@ -251,7 +261,7 @@ function openDemande(id,name){
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
-      <button class="btn btn-cyan" onclick="submitDemande('${name}')">📩 Envoyer la candidature</button>
+      <button class="btn btn-cyan" onclick="submitDemande('${state.currentCompanyName.replace(/'/g, "\\'")}')">📩 Envoyer la candidature</button>
     </div>`;
   document.getElementById('demandeModal').classList.add('open');
 }

@@ -32,20 +32,37 @@ function showLogin(role) {
   startSharedSync();
 }
 
+function setStudentAuthModalSize(mode) {
+  const modal = document.querySelector('#studentLoginModal .modal');
+  if (!modal) return;
+  if (mode === 'register') {
+    modal.style.width = '720px';
+    modal.style.maxHeight = '92vh';
+  } else {
+    modal.style.width = '420px';
+    modal.style.maxHeight = '90vh';
+  }
+}
+
+function showStudentRegisterForm() {
+  openStudentRegisterModal();
+}
+
 // ──────────────────────────────────
 // CONNEXION ÉTUDIANT — matricule + mot de passe
 // ──────────────────────────────────
 function openStudentLoginModal(){
+  setStudentAuthModalSize('login');
   const title = document.querySelector('#studentLoginModal .modal-title');
   if (title) title.textContent = '🎓 Connexion Étudiant';
   document.getElementById('studentLoginModalContent').innerHTML = `
-    <p class="auth-sub">Connectez-vous avec le matricule et le mot de passe créés lors de votre inscription.</p>
+    <p class="auth-sub">Connectez-vous avec votre matricule et le mot de passe créés lors de votre inscription.</p>
     <div class="form-group"><label class="form-label">N° matricule</label><input id="studentLoginMatricule" class="form-input" placeholder="Votre numéro de matricule"></div>
     <div class="form-group"><label class="form-label">Mot de passe</label><input id="studentLoginPassword" type="password" class="form-input" placeholder="••••••••"></div>
     <button class="btn btn-cyan w-full" onclick="submitStudentLogin()">Se connecter</button>
     <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
       Pas encore de compte ?
-      <a href="#" onclick="openStudentRegisterModal();return false;" style="color:var(--cyan2);font-weight:600">Créer un compte (solo / binôme / quadrinôme)</a>
+      <a href="#" onclick="showStudentRegisterForm();return false;" style="color:var(--cyan2);font-weight:600">Créer un compte étudiant</a>
     </p>`;
   document.getElementById('studentLoginModal').classList.add('open');
 }
@@ -109,13 +126,6 @@ function openCompanyLoginModal(){
     <div class="form-group"><label class="form-label">Identifiant entreprise</label><input id="companyLoginId" class="form-input" placeholder="Identifiant de votre entreprise"></div>
     <div class="form-group"><label class="form-label">Mot de passe</label><input id="companyLoginPassword" type="password" class="form-input" placeholder="••••••••"></div>
     <button class="btn btn-cyan w-full" onclick="submitCompanyLogin()">Se connecter</button>
-    <div class="auth-demo-box">
-      <div class="text-xs text-muted mb8" style="font-weight:600">Compte de démonstration :</div>
-      <div class="auth-demo-row" onclick="fillCompanyLogin('CEVITALAGRO','13102026')">
-        <span class="auth-demo-type">Entreprise</span>
-        <span class="auth-demo-email">Cevital</span>
-      </div>
-    </div>
     <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
       Pas encore de compte ?
       <a href="#" onclick="showEntrepriseRegisterForm();return false;" style="color:var(--cyan2);font-weight:600">Créer un compte entreprise</a>
@@ -124,8 +134,11 @@ function openCompanyLoginModal(){
 }
 
 function fillCompanyLogin(identifiant, password){
-  document.getElementById('companyLoginId').value = identifiant;
-  document.getElementById('companyLoginPassword').value = password;
+  const idEl = document.getElementById('companyLoginId');
+  const pwEl = document.getElementById('companyLoginPassword');
+  if (!idEl || !pwEl) return;
+  idEl.value = identifiant;
+  pwEl.value = password;
   setTimeout(()=>submitCompanyLogin(), 50);
 }
 

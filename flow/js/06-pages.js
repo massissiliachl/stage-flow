@@ -113,7 +113,11 @@ function getPageHTML(id) {
     ${wilayas.map(w=>`<option value="${w}">${w}</option>`).join('')}
   </select>
 </div>
-<div class="company-grid" id="companyGrid">${companies.map(c=>companyCardHTML(c)).join('')}</div>`,
+<div class="company-grid" id="companyGrid">${(()=>{
+  const list = typeof getRegisteredCompanies === 'function' ? getRegisteredCompanies() : companies.filter(function(c) { return c.fromDb; });
+  if (!list.length) return typeof companiesSearchEmptyHTML === 'function' ? companiesSearchEmptyHTML() : '<div class="empty-state" style="grid-column:1/-1"><p>Aucune entreprise inscrite</p></div>';
+  return list.map(function(c) { return companyCardHTML(c); }).join('');
+})()}</div>`,
 
 'demandes':`
 <div class="page-header">
@@ -304,7 +308,7 @@ ${(() => {
       <div class="flex items-center gap8"><span>${attestation ? '📄' : (signed ? '📋' : '❌')}</span><div><div class="text-sm">Attestation de stage</div><div class="text-xs text-muted">PDF · ${attestation ? 'Envoyée' : (signed ? 'Modèle pré-rempli' : '—')}${conv ? ' · ' + conv.company : ''}</div></div></div>
       <div class="flex gap4">${attestationAction}</div>
     </div>
-    ${docRow('Fiche d\\'évaluation entreprise', 'PDF', report ? 'pending' : 'missing', '—')}
+    ${docRow("Fiche d'évaluation entreprise", 'PDF', report ? 'pending' : 'missing', '—')}
   </div>
   <div class="card">
     <div class="card-title">Avancement global</div>
@@ -396,12 +400,12 @@ ${(() => {
   <h2>Tableau de bord — ${state.user.company||state.user.name} 🏢</h2>
   <p>Gestion des stages PFE · Campagne ${new Date().getFullYear()}</p>
 </div>
-${(()=>{ const myCompany = state.user.company || state.user.name;
-  const myDemandes = demandes.filter(d=>d.company===myCompany);
+${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEntrepriseDemandes() : demandes.filter(function(d) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(d) : d.company === (state.user.company || state.user.name); });
   const received = myDemandes.length;
   const accepted = myDemandes.filter(d=>d.status==='accepted').length;
-  const toSign = conventions.filter(c=>c.company===myCompany && c.status!=='archived' && c.status!=='signed').length;
-  const active = conventions.filter(c=>c.company===myCompany && (c.status==='active'||c.status==='signed')).length;
+  const myConvs = typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name); });
+  const toSign = myConvs.filter(c=>c.status!=='archived' && c.status!=='signed').length;
+  const active = myConvs.filter(c=>c.status==='active'||c.status==='signed').length;
   return `
 <div class="grid-4 mb16">
   <div class="stat-card"><div class="num">${received}</div><div class="lbl">Demandes reçues</div></div>
@@ -432,7 +436,7 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
   </div>
   <div class="card">
     <div class="card-title">📄 Conventions à signer</div>
-    ${(()=>{ const myConvs = conventions.filter(c=>c.company===myCompany && c.status!=='archived');
+    ${(()=>{ const myConvs = (typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name); })).filter(function(c) { return c.status !== 'archived'; });
       if(!myConvs.length) return '<div class="empty-state"><div class="ico">📄</div><p>Aucune convention en attente</p></div>';
       return myConvs.map(conv=>{
         const sigCount=[conv.signed_entreprise,conv.signed_univ].filter(Boolean).length;
@@ -459,8 +463,7 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
     <table>
       <thead><tr><th>Étudiant(e)</th><th>Thème</th><th>Encadrant</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
-        ${(()=>{ const myCompany = state.user.company || state.user.name;
-          const myDemandes = demandes.filter(d=>d.company===myCompany);
+        ${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEntrepriseDemandes() : demandes.filter(function(d) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(d) : d.company === (state.user.company || state.user.name); });
           if(!myDemandes.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>';
           return myDemandes.map(d=>`<tr>
             <td><strong>${d.studentLabel||d.studentName||'—'}</strong></td>
@@ -471,7 +474,7 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
             <td>${d.status==='pending'
               ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" title="Accepter et désigner l'encadrant" onclick="openAcceptDemandeModal(${d.id})">✓</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
               : d.status==='accepted'
-                ? (()=>{ const c = conventions.find(x=>x.fromDb && (x.etudiant||'')===(d.studentName||'') && x.company===d.company);
+                ? (()=>{ const c = conventions.find(function(x) { return x.fromDb && (x.etudiant || '') === (d.studentName || '') && (typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(x) : x.company === d.company); });
                   return c ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${c.id})">Voir convention</button>` : `<span class="text-xs text-muted">Convention en cours…</span>`;
                 })()
                 : '—'}</td>
@@ -489,8 +492,7 @@ ${(()=>{ const myCompany = state.user.company || state.user.name;
     <table>
       <thead><tr><th>Référence</th><th>Étudiant(e)</th><th>Encadrant</th><th>Thème</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
-        ${(()=>{ const myCompany = state.user.company || state.user.name;
-          const myConvs = conventions.filter(c=>c.company===myCompany);
+        ${(()=>{ const myConvs = typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name); });
           if(!myConvs.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Aucune convention pour le moment</td></tr>';
           return myConvs.map(c=>`<tr>
           <td><strong>${c.reference||('SF-2026-0'+(c.id+46))}</strong></td>
@@ -811,7 +813,11 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
     ${wilayas.map(w=>`<option value="${w}">${w}</option>`).join('')}
   </select>
 </div>
-<div class="company-grid" id="companyGrid">${companies.map(c=>companyCardHTML(c)).join('')}</div>`,
+<div class="company-grid" id="companyGrid">${(()=>{
+  const list = typeof getRegisteredCompanies === 'function' ? getRegisteredCompanies() : companies.filter(function(c) { return c.fromDb; });
+  if (!list.length) return typeof companiesSearchEmptyHTML === 'function' ? companiesSearchEmptyHTML() : '<div class="empty-state" style="grid-column:1/-1"><p>Aucune entreprise inscrite</p></div>';
+  return list.map(function(c) { return companyCardHTML(c); }).join('');
+})()}</div>`,
 
 'univ-stats':`
 <div class="page-header"><h2>📈 Statistiques & Rapports</h2><p>${state.user.type==='universite'?'Vue globale — toutes facultés et départements · Semestre 1 2026':'Données analytiques PFE — Semestre 1 2026'}</p></div>

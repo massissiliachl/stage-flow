@@ -16,12 +16,15 @@ function mapDemande(row) {
   return {
     id: Number(row.id),
     company: row.entreprise_nom,
+    entrepriseId: row.entreprise_id ? Number(row.entreprise_id) : null,
     status: row.status,
     date,
     theme: row.theme || '',
     encadrant: row.encadrant || '—',
     studentName: row.student_name || '—',
     studentLabel: row.student_name || '—',
+    duree: row.duree || '',
+    fromDb: true,
   };
 }
 
@@ -284,7 +287,7 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
 
     const [demandesRes, conventionsRes] = await Promise.all([
       pool.query(
-        `SELECT id, student_name, entreprise_nom, theme, encadrant, status, demand_date
+        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
          FROM stage_demands
          WHERE entreprise_id = $1
          ORDER BY demand_date DESC NULLS LAST, id DESC`,

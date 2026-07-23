@@ -1,7 +1,7 @@
 // ══════════════════════════════════
 // DATA
 // ══════════════════════════════════
-const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
+const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], companiesFromDb:false, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
 
 // Map des comptes inscrits en session (email → objet utilisateur)
 // Permet de gérer plusieurs comptes créés dynamiquement
@@ -21,14 +21,14 @@ async function apiJson(path, options = {}) {
 
 async function syncEntrepriseDataFromDb(account) {
   if (!account || !account.entrepriseId) return;
-  const company = account.company || account.name || '';
+  const entId = Number(account.entrepriseId);
   try {
-    const data = await apiJson('/api/entreprise/' + account.entrepriseId + '/dashboard');
+    const data = await apiJson('/api/entreprise/' + entId + '/dashboard');
     for (let i = demandes.length - 1; i >= 0; i--) {
-      if (demandes[i].company === company) demandes.splice(i, 1);
+      if (demandes[i].fromDb && Number(demandes[i].entrepriseId) === entId) demandes.splice(i, 1);
     }
     for (let i = conventions.length - 1; i >= 0; i--) {
-      if (conventions[i].company === company) conventions.splice(i, 1);
+      if (conventions[i].fromDb && Number(conventions[i].entrepriseId) === entId) conventions.splice(i, 1);
     }
     (data.demandes || []).forEach(function(d) { demandes.push(d); });
     (data.conventions || []).forEach(function(c) { conventions.push(c); });
@@ -101,12 +101,45 @@ async function loadCompaniesFromDb() {
   try {
     const data = await apiJson('/api/entreprises');
     const list = data.entreprises || [];
-    if (list.length) companies.splice(0, companies.length, ...list);
+    companies.splice(0, companies.length, ...list);
+    state.companiesFromDb = true;
     return list.length;
   } catch (e) {
     console.warn('[StageFlow] Entreprises (base):', e.message);
-    return 0;
+    state.companiesFromDb = false;
+    return -1;
   }
+}
+
+/** Entreprises réellement inscrites en base (pas les fiches démo locales) */
+function getRegisteredCompanies() {
+  if (state.companiesFromDb) return companies.slice();
+  return companies.filter(function(c) { return c.fromDb; });
+}
+
+function belongsToCurrentEntreprise(item) {
+  const u = state.user;
+  if (!u || !item) return false;
+  const entId = u.entrepriseId ? Number(u.entrepriseId) : null;
+  if (entId && item.entrepriseId) return Number(item.entrepriseId) === entId;
+  const company = u.company || u.name || '';
+  return (item.company || item.entreprise_nom || '') === company;
+}
+
+function getEntrepriseDemandes() {
+  return demandes.filter(function(d) { return belongsToCurrentEntreprise(d); });
+}
+
+function getEntrepriseConventions() {
+  return conventions.filter(function(c) { return belongsToCurrentEntreprise(c); });
+}
+
+function companiesSearchEmptyHTML() {
+  return `<div class="empty-state" style="grid-column:1/-1;padding:32px">
+    <div class="ico">🏢</div>
+    <p class="text-sm">Aucune entreprise inscrite pour le moment.</p>
+    <p class="text-xs text-muted mt8">Les entreprises partenaires apparaissent ici dès qu'elles créent leur compte sur StageFlow.</p>
+  </div>`;
 }
 
 async function syncStudentDemandesFromDb() {

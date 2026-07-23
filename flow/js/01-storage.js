@@ -211,18 +211,33 @@ async function resetSharedData(){
 
 // Rafraîchit périodiquement l'état partagé pour refléter les actions des autres comptes
 let sharedSyncInterval = null;
+async function syncRoleDataFromDb() {
+  if (state.role === 'entreprise' && state.user && state.user.entrepriseId && typeof syncEntrepriseDataFromDb === 'function') {
+    await syncEntrepriseDataFromDb(state.user);
+    return true;
+  }
+  if (state.role === 'etudiant' && state.user && typeof syncEtudiantFromDb === 'function') {
+    await syncEtudiantFromDb();
+    return true;
+  }
+  return false;
+}
 function startSharedSync(){
-  syncSharedData().then(()=>{
-    if(state.role) refreshCurrentView();
+  syncSharedData().then(async function(){
+    if(state.role) {
+      await syncRoleDataFromDb();
+      refreshCurrentView();
+    }
   });
   if(sharedSyncInterval) return;
-  sharedSyncInterval = setInterval(async ()=>{
+  sharedSyncInterval = setInterval(async function(){
     const ind = document.getElementById('syncIndicator');
     if(ind) ind.classList.add('syncing');
     const before = JSON.stringify(sharedData);
     await syncSharedData();
+    const dbSynced = await syncRoleDataFromDb();
     if(ind) ind.classList.remove('syncing');
-    if(state.role && JSON.stringify(sharedData)!==before){
+    if(state.role && (JSON.stringify(sharedData)!==before || dbSynced)){
       refreshCurrentView();
     }
   }, 4000);
