@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { hasEmailVerifyColumns } = require('./email-verify-db');
 
 const TOKEN_BYTES = 32;
 const TOKEN_TTL_HOURS = Number(process.env.EMAIL_VERIFY_TTL_HOURS || 24);
@@ -94,6 +95,12 @@ async function verifyEmailToken(pool, token) {
 }
 
 async function issueVerificationEmail(client, { userId, email, name, role }) {
+  const { getPool } = require('./db');
+  const enabled = await hasEmailVerifyColumns(getPool());
+  if (!enabled) {
+    return { skipped: true, sent: false, devMode: false };
+  }
+
   const { verifyUrl } = await createVerificationForUser(client, userId);
   const { sendVerificationEmail } = require('./mail');
   const mailResult = await sendVerificationEmail({ to: email, name, verifyUrl, role });

@@ -1,6 +1,7 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
 const { verifyEmailToken, issueVerificationEmail } = require('../lib/email-verify');
+const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
 
 const router = express.Router();
 
@@ -17,6 +18,13 @@ router.get('/verify-email', async (req, res) => {
 
   try {
     const pool = getPool();
+    if (!(await hasEmailVerifyColumns(pool))) {
+      return res.status(503).json({
+        error: 'La vérification email n\'est pas encore activée sur le serveur',
+        code: 'EMAIL_VERIFY_NOT_CONFIGURED',
+      });
+    }
+
     const result = await verifyEmailToken(pool, token);
 
     if (!result.ok) {
@@ -52,6 +60,13 @@ router.post('/resend-verification', async (req, res) => {
   }
 
   const pool = getPool();
+  if (!(await hasEmailVerifyColumns(pool))) {
+    return res.json({
+      message: 'La vérification email n\'est pas requise — vous pouvez vous connecter directement.',
+      alreadyVerified: true,
+    });
+  }
+
   const client = await pool.connect();
 
   try {

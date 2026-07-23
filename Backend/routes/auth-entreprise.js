@@ -2,6 +2,7 @@ const express = require('express');
 const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
+const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
 
 const router = express.Router();
 
@@ -190,6 +191,34 @@ router.post('/register', async (req, res) => {
 
     await client.query('COMMIT');
 
+    const verifyEnabled = !mailResult.skipped;
+
+    if (!verifyEnabled) {
+      return res.status(201).json({
+        message: 'Compte entreprise créé avec succès',
+        identifiant,
+        user: toFrontendUser({
+          user_id: user.id,
+          email: user.email,
+          login_id: user.login_id,
+          display_name: user.display_name,
+          avatar: user.avatar,
+          encadrant_ent: user.encadrant_ent,
+          phone: user.phone,
+          entreprise_id: entreprise.id,
+          entreprise_nom: entreprise.nom,
+          secteur: entreprise.secteur,
+          wilaya: entreprise.wilaya,
+          adresse: entreprise.adresse,
+          email_contact: entreprise.email_contact,
+          nif: entreprise.nif,
+          nrc: entreprise.nrc,
+          nis: entreprise.nis,
+          entreprise_logo: logo,
+        }),
+      });
+    }
+
     const response = {
       message: 'Compte créé — vérifiez votre email pour vous connecter',
       requiresEmailVerification: true,
@@ -231,6 +260,9 @@ router.post('/login', async (req, res) => {
 
   try {
     const pool = getPool();
+    const verifyEnabled = await hasEmailVerifyColumns(pool);
+    const emailVerifiedSelect = verifyEnabled ? 'u.email_verified,' : 'TRUE AS email_verified,';
+
     const result = await pool.query(
       `SELECT
          u.id AS user_id,
@@ -242,7 +274,7 @@ router.post('/login', async (req, res) => {
          u.encadrant_ent,
          u.phone,
          u.is_active,
-         u.email_verified,
+         ${emailVerifiedSelect}
          e.id AS entreprise_id,
          e.nom AS entreprise_nom,
          e.secteur,
@@ -269,7 +301,7 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Ce compte est désactivé' });
     }
 
-    if (row.email_verified === false) {
+    if (row.email_verified === false && verifyEnabled) {
       return res.status(403).json({
         error: 'Veuillez vérifier votre adresse email avant de vous connecter',
         code: 'EMAIL_NOT_VERIFIED',

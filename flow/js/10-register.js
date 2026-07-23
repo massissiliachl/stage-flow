@@ -212,6 +212,24 @@ async function submitRegisterEtudiant(){
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    if (data.user && !data.requiresEmailVerification) {
+      const account = { ...data.user, password: pw, _role: 'etudiant' };
+      registeredAccounts.etudiant[matricule] = account;
+      closeOverlay('studentLoginModal');
+      showToast(`✅ Compte créé — bienvenue ${name}`);
+      state.role = 'etudiant';
+      state.user = account;
+      await syncEtudiantFromDb();
+      hideLanding();
+      const app = document.getElementById('app');
+      app.style.display = 'flex'; app.style.flexDirection = 'column';
+      document.getElementById('userNameDisplay').textContent = account.name;
+      document.getElementById('userRoleDisplay').textContent = 'Étudiante';
+      document.getElementById('avatarDisplay').textContent = account.avatar || account.name.slice(0, 2).toUpperCase();
+      buildSidebar(); buildNotifList(); navigateTo(getDefaultPage());
+      startSharedSync();
+      return;
+    }
     showEmailVerificationPending({
       email: data.email || email,
       role: 'etudiant',
@@ -252,6 +270,14 @@ async function submitRegisterEntreprise(){
       method: 'POST',
       body: JSON.stringify({ nom, secteur, wilaya, adresse, phone, email, password: pw, nif, nrc, nis }),
     });
+
+    if (data.user && !data.requiresEmailVerification) {
+      closeOverlay('registerModal');
+      showToast(`✅ Compte créé — identifiant : ${data.identifiant}`);
+      await loadCompaniesFromDb();
+      await enterEntrepriseApp(data.user);
+      return;
+    }
 
     closeOverlay('registerModal');
     showEmailVerificationPending({
