@@ -522,15 +522,33 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
 
 conventionsRouter.get('/', async (req, res) => {
   const studentName = (req.query.studentName || '').trim();
-  if (!studentName) {
-    return res.status(400).json({ error: 'Paramètre studentName requis' });
+  const matricule = (req.query.matricule || '').trim();
+  if (!studentName && !matricule) {
+    return res.status(400).json({ error: 'Paramètre studentName ou matricule requis' });
   }
   try {
     const pool = getPool();
-    await ensureConventionsForStudent(pool, studentName);
+    let resolvedName = studentName;
+    if (matricule) {
+      const byMatricule = await pool.query(
+        `SELECT u.display_name
+         FROM students s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.matricule = $1 OR u.login_id = $1
+         LIMIT 1`,
+        [matricule]
+      );
+      if (byMatricule.rows.length) {
+        resolvedName = byMatricule.rows[0].display_name || resolvedName;
+      }
+    }
+    if (!resolvedName) {
+      return res.status(400).json({ error: 'Étudiant introuvable' });
+    }
+    await ensureConventionsForStudent(pool, resolvedName);
     const result = await queryConventions(pool, {
-      where: 'student_name = $1',
-      params: [studentName],
+      where: 'LOWER(student_name) = LOWER($1)',
+      params: [resolvedName],
       orderBy: 'id DESC',
     });
     res.json({ conventions: mapConventionRows(result.rows) });

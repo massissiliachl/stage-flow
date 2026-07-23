@@ -247,11 +247,15 @@ async function syncStudentDemandesFromDb() {
 async function syncStudentConventionsFromDb() {
   const u = state.user;
   if (!u || !u.name) return;
+  const accepted = getAcceptedStudentDemande(u);
+  const queryName = (accepted && (accepted.studentLabel || accepted.studentName)) || u.name;
   try {
-    const data = await apiJson('/api/conventions?studentName=' + encodeURIComponent(u.name));
+    let url = '/api/conventions?studentName=' + encodeURIComponent(queryName);
+    if (u.matricule) url += '&matricule=' + encodeURIComponent(u.matricule);
+    const data = await apiJson(url);
     const fromDb = data.conventions || [];
     for (let i = conventions.length - 1; i >= 0; i--) {
-      if (conventions[i].fromDb && (conventions[i].etudiant || '') === u.name) conventions.splice(i, 1);
+      if (conventions[i].fromDb && conventionBelongsToStudent(conventions[i], u)) conventions.splice(i, 1);
     }
     fromDb.forEach(function(c) {
       const idx = conventions.findIndex(function(x) { return x.id === c.id; });
@@ -398,19 +402,47 @@ function mergeConventionFromApi(apiConvention) {
   else conventions.push(apiConvention);
 }
 
+function normalizeStudentName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function studentNamesMatch(a, b) {
+  const na = normalizeStudentName(a);
+  const nb = normalizeStudentName(b);
+  if (!na || !nb) return na === nb;
+  if (na === nb) return true;
+  const partsA = na.split(' ');
+  const partsB = nb.split(' ');
+  return partsA[0] === partsB[0] && partsA[partsA.length - 1] === partsB[partsB.length - 1];
+}
+
+function getAcceptedStudentDemande(u) {
+  return getStudentDemandes(u).find(function(d) { return d.status === 'accepted'; });
+}
+
+function conventionBelongsToStudent(conv, u) {
+  if (!conv || !u || !u.name) return false;
+  if (studentNamesMatch(conv.etudiant, u.name)) return true;
+  const accepted = getAcceptedStudentDemande(u);
+  if (!accepted) return false;
+  return conv.company === accepted.company
+    || (accepted.entrepriseId && Number(conv.entrepriseId) === Number(accepted.entrepriseId));
+}
+
 function getStudentConvention(u) {
   if (!u || !u.name) return null;
-  const mine = conventions.filter(function(c) {
-    return (c.etudiant || '') === u.name
-      || ((c.etudiant || '').includes(u.name.split(' ')[0])
-        && (c.etudiant || '').includes(u.name.split(' ').slice(-1)[0]));
-  });
+  const mine = conventions.filter(function(c) { return conventionBelongsToStudent(c, u); });
   const fullySigned = mine.find(function(c) {
     return c.fromDb && c.signed_entreprise && c.signed_univ;
   });
   if (fullySigned) return fullySigned;
   const fromDb = mine.filter(function(c) { return c.fromDb; });
   if (fromDb.length) return fromDb.sort(function(a, b) { return b.id - a.id; })[0];
+  const accepted = getAcceptedStudentDemande(u);
+  if (accepted) {
+    const localMatch = mine.sort(function(a, b) { return b.id - a.id; })[0];
+    if (localMatch) return localMatch;
+  }
   if (studentHasRealDemandes(u)) return null;
   return null;
 }
@@ -456,7 +488,7 @@ function getStudentProgressInfo(u) {
   else if (sigCount === 2) dossierTrend = 'Convention signée — stage en cours';
   else if (sigCount > 0) dossierTrend = 'Convention partiellement signée';
   else if (conv) dossierTrend = 'Convention créée — signatures en attente';
-  else if (accepted) dossierTrend = 'Demande acceptée — convention en préparation';
+  else if (accepted) dossierTrend = 'Convention créée à l\'acceptation par ' + accepted.company;
   else if (pendingN) dossierTrend = pendingN + ' candidature' + (pendingN > 1 ? 's' : '') + ' en attente';
   else if (rejectedN && !myDem.some(function(d) { return d.status === 'pending' || d.status === 'accepted'; })) dossierTrend = 'Candidatures refusées';
 
@@ -507,7 +539,7 @@ function buildStudentTimelineHTML(u) {
         html += '<div class="tl-item"><div class="tl-dot active"></div><div class="tl-date">En cours</div><div class="tl-title">Archivage université</div><div class="tl-desc">En attente de validation et archivage par la doyenne</div></div>';
       }
     } else {
-      html += '<div class="tl-item"><div class="tl-dot active"></div><div class="tl-date">En cours</div><div class="tl-title">Convention de stage</div><div class="tl-desc">Génération depuis la base pour ' + info.accepted.company + '…</div></div>';
+      html += '<div class="tl-item"><div class="tl-dot active"></div><div class="tl-date">En cours</div><div class="tl-title">Convention de stage</div><div class="tl-desc">Créée automatiquement à l\'acceptation par ' + info.accepted.company + ' — chargement…</div></div>';
     }
   }
 

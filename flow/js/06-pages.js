@@ -46,7 +46,7 @@ function getPageHTML(id) {
     return '<div class="empty-state" style="padding:20px"><div class="ico">📄</div><p class="text-sm text-muted">Postulez à une entreprise pour générer votre convention</p><button class="btn btn-cyan btn-sm mt12" onclick="navigateTo(\'search\')">🔍 Rechercher</button></div>';
   }
   if(!conv && accepted){
-    return '<div class="empty-state" style="padding:20px"><div class="ico">⏳</div><p class="text-sm">Convention en préparation pour <strong>'+accepted.company+'</strong></p><p class="text-xs text-muted mt8">Synchronisation avec la base…</p><button class="btn btn-cyan btn-sm mt12" onclick="syncEtudiantFromDb().then(function(){ navigateTo(\'dashboard\'); })">🔄 Actualiser</button></div>';
+    return '<div class="empty-state" style="padding:20px"><div class="ico">📄</div><p class="text-sm">Convention créée à l\'acceptation par <strong>'+accepted.company+'</strong></p><p class="text-xs text-muted mt8">Chargement depuis la base…</p><button class="btn btn-cyan btn-sm mt12" onclick="syncEtudiantFromDb().then(function(){ navigateTo(\'dashboard\'); })">🔄 Actualiser</button></div>';
   }
   const sigCount = [conv.signed_entreprise,conv.signed_univ].filter(Boolean).length;
   const convRef = conv.reference || (conv.id ? 'SF-2026-0'+(conv.id+46) : '—');
@@ -132,7 +132,11 @@ ${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentD
         ${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentDemandes(u) : demandes.filter(d=>(d.studentName||'')===u.name);
           if(!myDemandes.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune candidature envoyée pour le moment</td></tr>';
           return myDemandes.map(d=>{
-            const matchingConv = conventions.find(c=>c.fromDb && (c.etudiant||'')===u.name && (c.company===d.company || (d.entrepriseId && c.entrepriseId===d.entrepriseId)))
+            const matchingConv = conventions.find(function(c) {
+              return c.fromDb && typeof conventionBelongsToStudent === 'function'
+                ? conventionBelongsToStudent(c, u)
+                : ((c.etudiant || '') === u.name && (c.company === d.company || (d.entrepriseId && c.entrepriseId === d.entrepriseId)));
+            });
               || conventions.find(c=>c.company===d.company && (c.etudiant||'').includes(u.name.split(' ')[0]));
           return `<tr>
           <td style="display:flex;align-items:center;gap:10px;padding:12px 14px">
