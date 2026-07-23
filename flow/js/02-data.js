@@ -15,16 +15,28 @@ async function apiJson(path, options = {}) {
     ...options,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+  if (!res.ok) {
+    const err = new Error(data.error || 'Erreur serveur');
+    err.code = data.code;
+    err.status = res.status;
+    err.details = data;
+    throw err;
+  }
   return data;
 }
 
 function entrepriseSyncFingerprint(entId) {
   return demandes
     .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
+    .sort(function(a, b) { return Number(a.id) - Number(b.id); })
     .map(function(d) { return d.id + ':' + d.status; })
-    .sort()
     .join('|');
+}
+
+function entrepriseMaxDemandeId(entId) {
+  return demandes
+    .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
+    .reduce(function(max, d) { return Math.max(max, Number(d.id) || 0); }, 0);
 }
 
 async function syncEntrepriseDataFromDb(account) {
@@ -36,7 +48,24 @@ async function syncEntrepriseDataFromDb(account) {
       .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
       .map(function(d) { return d.id; })
   );
+  const sinceId = entrepriseMaxDemandeId(entId);
   try {
+    if (sinceId > 0) {
+      const pulse = await apiJson('/api/entreprise/' + entId + '/demandes/pulse?sinceId=' + sinceId);
+      if (pulse.fingerprint === fpBefore) {
+        return { changed: false, newDemandes: [] };
+      }
+      if (pulse.newDemandes && pulse.newDemandes.length) {
+        pulse.newDemandes.forEach(function(d) {
+          if (!demandes.some(function(x) { return x.id === d.id; })) demandes.push(d);
+        });
+        const newOnly = pulse.newDemandes.filter(function(d) { return !idsBefore.has(d.id); });
+        if (newOnly.length) {
+          return { changed: true, newDemandes: newOnly };
+        }
+      }
+    }
+
     const data = await apiJson('/api/entreprise/' + entId + '/dashboard');
     for (let i = demandes.length - 1; i >= 0; i--) {
       if (demandes[i].fromDb && Number(demandes[i].entrepriseId) === entId) demandes.splice(i, 1);
@@ -147,6 +176,12 @@ function belongsToCurrentEntreprise(item) {
 }
 
 function getEntrepriseDemandes() {
+  const entId = state.user?.entrepriseId ? Number(state.user.entrepriseId) : null;
+  if (entId) {
+    return demandes.filter(function(d) {
+      return d.fromDb && Number(d.entrepriseId) === entId;
+    });
+  }
   return demandes.filter(function(d) { return belongsToCurrentEntreprise(d); });
 }
 
@@ -445,7 +480,11 @@ function notifyNewEntrepriseDemandes(newDemandes) {
     const label = d.studentLabel || d.studentName || 'Étudiant(e)';
     showToast('📩 Nouvelle candidature — ' + label + ' · ' + (d.theme || 'stage'));
   });
-  if (state.role === 'entreprise' && typeof buildNotifList === 'function') buildNotifList();
+  if (state.role === 'entreprise') {
+    if (typeof buildNotifList === 'function') buildNotifList();
+    if (typeof buildSidebar === 'function') buildSidebar();
+    if (typeof refreshCurrentView === 'function') refreshCurrentView();
+  }
 }
 
 function sidebarBadgeFor(item) {
@@ -494,7 +533,7 @@ async function loadConventionFromDb(conventionId) {
   return conventions.find(function(c) { return c.id === conventionId; }) || null;
 }
 
-function enterEntrepriseApp(account) {
+async function enterEntrepriseApp(account) {
   state.role = 'entreprise';
   state.user = account;
   state.user._role = 'entreprise';
@@ -505,6 +544,7 @@ function enterEntrepriseApp(account) {
   document.getElementById('userNameDisplay').textContent = flowUserDisplayName(state.user);
   document.getElementById('userRoleDisplay').textContent = 'Entreprise';
   document.getElementById('avatarDisplay').textContent = state.user.avatar || (state.user.company||state.user.name).slice(0,2).toUpperCase();
+  await syncEntrepriseDataFromDb(account);
   buildSidebar(); buildNotifList(); navigateTo(getDefaultPage());
   startSharedSync();
 }

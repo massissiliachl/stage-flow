@@ -214,7 +214,7 @@ let sharedSyncInterval = null;
 let sharedSyncVisibilityBound = false;
 
 function getSharedSyncIntervalMs() {
-  if (state.role === 'entreprise') return 1500;
+  if (state.role === 'entreprise') return 500;
   if (state.role === 'etudiant') return 3000;
   return 4000;
 }
@@ -252,6 +252,9 @@ function bindSharedSyncVisibility() {
     if (document.visibilityState === 'visible' && state.role) {
       runSharedSyncTick();
     }
+  });
+  window.addEventListener('focus', function() {
+    if (state.role) runSharedSyncTick();
   });
 }
 

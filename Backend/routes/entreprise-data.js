@@ -265,6 +265,56 @@ router.patch('/:entrepriseId/profile', async (req, res) => {
 });
 
 /**
+ * GET /api/entreprise/:entrepriseId/demandes/pulse
+ * Vérification légère des nouvelles candidatures (polling rapide)
+ */
+router.get('/:entrepriseId/demandes/pulse', async (req, res) => {
+  const entrepriseId = parseInt(req.params.entrepriseId, 10);
+  const sinceId = parseInt(req.query.sinceId || '0', 10) || 0;
+
+  if (!entrepriseId || Number.isNaN(entrepriseId)) {
+    return res.status(400).json({ error: 'Identifiant entreprise invalide' });
+  }
+
+  try {
+    const pool = getPool();
+    const summary = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+         COALESCE(MAX(id), 0)::int AS max_id,
+         COALESCE(string_agg(id::text || ':' || status, '|' ORDER BY id), '') AS fingerprint
+       FROM stage_demands
+       WHERE entreprise_id = $1`,
+      [entrepriseId]
+    );
+
+    let newDemandes = [];
+    if (sinceId > 0) {
+      const fresh = await pool.query(
+        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
+         FROM stage_demands
+         WHERE entreprise_id = $1 AND id > $2
+         ORDER BY id ASC`,
+        [entrepriseId, sinceId]
+      );
+      newDemandes = fresh.rows.map(mapDemande);
+    }
+
+    const row = summary.rows[0] || { pending_count: 0, max_id: 0, fingerprint: '' };
+    res.json({
+      pendingCount: row.pending_count,
+      maxId: row.max_id,
+      fingerprint: row.fingerprint || '',
+      hasNew: row.max_id > sinceId,
+      newDemandes,
+    });
+  } catch (err) {
+    console.error('Demandes pulse error:', err.message);
+    res.status(500).json({ error: 'Erreur lors de la vérification des demandes' });
+  }
+});
+
+/**
  * GET /api/entreprise/:entrepriseId/dashboard
  * Demandes + conventions de l'entreprise connectée (PostgreSQL)
  */

@@ -178,7 +178,7 @@ demandesRouter.post('/', async (req, res) => {
     const row = result.rows[0];
     const motivation = message ? String(message).trim() : '';
     res.status(201).json({
-      message: 'Demande envoyée avec succès',
+      message: 'Demande envoyée — visible immédiatement par l\'entreprise',
       demande: {
         ...mapDemandeRow({ ...row, message: motivation }),
         studentLabel: studentLabel || nameTrim,

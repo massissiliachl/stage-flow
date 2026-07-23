@@ -194,6 +194,7 @@ async function submitRegisterEtudiant(){
     showToast('⚠️ Nom, matricule, email, spécialité, encadrant et mot de passe sont obligatoires');
     return;
   }
+  if (!isValidEmail(email)) { showToast('⚠️ Adresse email invalide'); return; }
   if (pw !== pw2) { showToast('⚠️ Les mots de passe ne correspondent pas'); return; }
   if (pw.length < 6) { showToast('⚠️ Mot de passe : minimum 6 caractères'); return; }
   if (groupType !== 'solo' && groupMembers.some((m) => !m.name)) {
@@ -211,21 +212,13 @@ async function submitRegisterEtudiant(){
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    const account = { ...data.user, password: pw, _role: 'etudiant' };
-    registeredAccounts.etudiant[matricule] = account;
-    closeOverlay('studentLoginModal');
-    showToast(`✅ Compte créé — bienvenue ${name}`);
-    state.role = 'etudiant';
-    state.user = account;
-    await syncEtudiantFromDb();
-    hideLanding();
-    const app = document.getElementById('app');
-    app.style.display = 'flex'; app.style.flexDirection = 'column';
-    document.getElementById('userNameDisplay').textContent = account.name;
-    document.getElementById('userRoleDisplay').textContent = 'Étudiante';
-    document.getElementById('avatarDisplay').textContent = account.avatar || account.name.slice(0, 2).toUpperCase();
-    buildSidebar(); buildNotifList(); navigateTo(getDefaultPage());
-    startSharedSync();
+    showEmailVerificationPending({
+      email: data.email || email,
+      role: 'etudiant',
+      matricule: data.matricule || matricule,
+      devVerifyUrl: data.devVerifyUrl,
+    });
+    showToast('📧 Compte créé — vérifiez votre email pour vous connecter');
   } catch (err) {
     showToast('❌ ' + (err.message || 'Erreur lors de la création du compte'));
   }
@@ -249,6 +242,7 @@ async function submitRegisterEntreprise(){
     showToast('⚠️ Raison sociale, NIF, RC, adresse, téléphone, email et mot de passe sont obligatoires');
     return;
   }
+  if (!isValidEmail(email)) { showToast('⚠️ Adresse email invalide'); return; }
   if(nif.length < 15){ showToast('⚠️ Le NIF doit contenir au moins 15 chiffres'); return; }
   if(pw !== pw2){ showToast('⚠️ Les mots de passe ne correspondent pas'); return; }
   if(pw.length < 6){ showToast('⚠️ Mot de passe : minimum 6 caractères'); return; }
@@ -259,12 +253,14 @@ async function submitRegisterEntreprise(){
       body: JSON.stringify({ nom, secteur, wilaya, adresse, phone, email, password: pw, nif, nrc, nis }),
     });
 
-    const account = data.user;
     closeOverlay('registerModal');
-    showToast(`✅ Compte créé en base — identifiant : ${data.identifiant}`);
-    await loadCompaniesFromDb();
-    await syncEntrepriseDataFromDb(account);
-    setTimeout(()=> enterEntrepriseApp(account), 800);
+    showEmailVerificationPending({
+      email: data.email || email,
+      role: 'entreprise',
+      identifiant: data.identifiant,
+      devVerifyUrl: data.devVerifyUrl,
+    });
+    showToast(`📧 Compte créé — identifiant : ${data.identifiant}. Vérifiez votre email.`);
   } catch (err) {
     showToast('❌ ' + (err.message || 'Erreur lors de la création du compte'));
   }

@@ -125,6 +125,9 @@ CREATE TABLE IF NOT EXISTS users (
   debut           TEXT,
   fin             TEXT,
   is_active       BOOLEAN DEFAULT TRUE,
+  email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verification_token TEXT,
+  email_verification_expires TIMESTAMPTZ,
   last_login      TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()

@@ -381,7 +381,7 @@ ${(() => {
 'ent-dashboard':`
 <div class="page-header">
   <h2>Tableau de bord — ${state.user.company||state.user.name} 🏢</h2>
-  <p>Gestion des stages PFE · Campagne ${new Date().getFullYear()}</p>
+  <p>Gestion des stages PFE · Campagne ${new Date().getFullYear()} · <span class="text-xs text-muted">Candidatures reçues en temps réel</span></p>
 </div>
 ${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEntrepriseDemandes() : demandes.filter(function(d) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(d) : d.company === (state.user.company || state.user.name); });
   const received = myDemandes.length;

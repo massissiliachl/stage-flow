@@ -1,6 +1,7 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
+const { issueVerificationEmail } = require('../lib/email-verify');
 
 const router = express.Router();
 
@@ -178,32 +179,29 @@ router.post('/register', async (req, res) => {
       ]
     );
 
+    const user = userResult.rows[0];
+
+    const mailResult = await issueVerificationEmail(client, {
+      userId: user.id,
+      email: emailTrim,
+      name: nomTrim,
+      role: 'entreprise',
+    });
+
     await client.query('COMMIT');
 
-    const user = userResult.rows[0];
-    res.status(201).json({
-      message: 'Compte entreprise créé avec succès',
+    const response = {
+      message: 'Compte créé — vérifiez votre email pour vous connecter',
+      requiresEmailVerification: true,
+      email: emailTrim,
       identifiant,
-      user: toFrontendUser({
-        user_id: user.id,
-        email: user.email,
-        login_id: user.login_id,
-        display_name: user.display_name,
-        avatar: user.avatar,
-        encadrant_ent: user.encadrant_ent,
-        phone: user.phone,
-        entreprise_id: entreprise.id,
-        entreprise_nom: entreprise.nom,
-        secteur: entreprise.secteur,
-        wilaya: entreprise.wilaya,
-        adresse: entreprise.adresse,
-        email_contact: entreprise.email_contact,
-        nif: entreprise.nif,
-        nrc: entreprise.nrc,
-        nis: entreprise.nis,
-        entreprise_logo: logo,
-      }),
-    });
+    };
+
+    if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
+      response.devVerifyUrl = mailResult.verifyUrl;
+    }
+
+    res.status(201).json(response);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Register entreprise error:', err.message);
@@ -244,6 +242,7 @@ router.post('/login', async (req, res) => {
          u.encadrant_ent,
          u.phone,
          u.is_active,
+         u.email_verified,
          e.id AS entreprise_id,
          e.nom AS entreprise_nom,
          e.secteur,
@@ -268,6 +267,16 @@ router.post('/login', async (req, res) => {
 
     if (row.is_active === false) {
       return res.status(403).json({ error: 'Ce compte est désactivé' });
+    }
+
+    if (row.email_verified === false) {
+      return res.status(403).json({
+        error: 'Veuillez vérifier votre adresse email avant de vous connecter',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: row.email,
+        role: 'entreprise',
+        identifiant: row.login_id,
+      });
     }
 
     if (!verifyPassword(password, row.password_hash)) {

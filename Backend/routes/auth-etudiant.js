@@ -1,6 +1,7 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
+const { issueVerificationEmail } = require('../lib/email-verify');
 
 const router = express.Router();
 
@@ -200,27 +201,27 @@ router.post('/register', async (req, res) => {
       ]
     );
 
+    const mailResult = await issueVerificationEmail(client, {
+      userId: user.id,
+      email: emailTrim,
+      name: nameTrim,
+      role: 'etudiant',
+    });
+
     await client.query('COMMIT');
 
-    res.status(201).json({
-      message: 'Compte étudiant créé avec succès',
-      user: toFrontendUser({
-        user_id: user.id,
-        email: user.email,
-        login_id: user.login_id,
-        display_name: user.display_name,
-        avatar: user.avatar,
-        student_data: user.student_data,
-        theme: user.theme,
-        encadrant: user.encadrant,
-        binome: user.binome,
-        matricule: matriculeTrim,
-        specialty: studentData.specialty,
-        promotion: studentData.promo,
-        faculte: studentData.faculte,
-        departement: studentData.departement,
-      }),
-    });
+    const response = {
+      message: 'Compte créé — vérifiez votre email pour vous connecter',
+      requiresEmailVerification: true,
+      email: emailTrim,
+      matricule: matriculeTrim,
+    };
+
+    if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
+      response.devVerifyUrl = mailResult.verifyUrl;
+    }
+
+    res.status(201).json(response);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Register etudiant error:', err.message);
@@ -256,6 +257,7 @@ router.post('/login', async (req, res) => {
          u.encadrant,
          u.binome,
          u.is_active,
+         u.email_verified,
          s.matricule,
          s.specialty,
          s.promotion,
@@ -274,6 +276,14 @@ router.post('/login', async (req, res) => {
     const row = result.rows[0];
     if (row.is_active === false) {
       return res.status(403).json({ error: 'Ce compte est désactivé' });
+    }
+    if (row.email_verified === false) {
+      return res.status(403).json({
+        error: 'Veuillez vérifier votre adresse email avant de vous connecter',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: row.email,
+        role: 'etudiant',
+      });
     }
     if (!verifyPassword(password, row.password_hash)) {
       return res.status(401).json({ error: 'Matricule ou mot de passe incorrect' });

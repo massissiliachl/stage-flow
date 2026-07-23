@@ -92,6 +92,14 @@ async function submitStudentLogin(){
     startSharedSync();
     return;
   } catch (err) {
+    if (err.code === 'EMAIL_NOT_VERIFIED') {
+      showEmailVerificationPending({
+        email: err.details?.email || '',
+        role: 'etudiant',
+        matricule,
+      });
+      return;
+    }
     // repli comptes locaux (session navigateur)
   }
 
@@ -156,10 +164,17 @@ async function submitCompanyLogin(){
       method: 'POST',
       body: JSON.stringify({ identifiant, password }),
     });
-    await syncEntrepriseDataFromDb(data.user);
-    enterEntrepriseApp(data.user);
+    await enterEntrepriseApp(data.user);
     showToast('✅ Connexion réussie — bienvenue !');
   } catch (err) {
+    if (err.code === 'EMAIL_NOT_VERIFIED') {
+      showEmailVerificationPending({
+        email: err.details?.email || '',
+        role: 'entreprise',
+        identifiant: err.details?.identifiant || identifiant,
+      });
+      return;
+    }
     showToast('❌ ' + (err.message || 'Connexion impossible. Démarrez le Backend (npm start) et vérifiez vos identifiants.'));
   }
 }
@@ -408,4 +423,74 @@ function submitChildAccount(){
   closeOverlay('childAccountModal');
   showToast(`✅ ${accountTypeLabels[childType]} "${orgName}" créé(e) avec succès`);
   navigateTo('univ-comptes');
+}
+
+// ──────────────────────────────────
+// VÉRIFICATION EMAIL
+// ──────────────────────────────────
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim());
+}
+
+function showEmailVerificationPending(opts) {
+  const { email, role, matricule, identifiant, devVerifyUrl } = opts || {};
+  const roleLabel = role === 'entreprise' ? 'entreprise' : 'étudiant';
+  const loginFn = role === 'entreprise' ? 'openCompanyLoginModal()' : 'openStudentLoginModal()';
+  const modalId = role === 'entreprise' ? 'companyLoginModal' : 'studentLoginModal';
+  const contentId = role === 'entreprise' ? 'companyLoginModalContent' : 'studentLoginModalContent';
+  const safeEmail = (email || '').replace(/"/g, '&quot;');
+
+  const devBlock = devVerifyUrl ? `
+    <div class="sign-info-box" style="margin-top:12px">
+      <span style="font-size:16px;flex-shrink:0">🛠</span>
+      <span>Mode développement — <a href="${devVerifyUrl}" target="_blank" rel="noopener">cliquez ici pour vérifier</a></span>
+    </div>` : '';
+
+  const extraInfo = identifiant
+    ? `<p class="text-xs text-muted" style="margin-top:8px">Identifiant entreprise : <strong>${identifiant}</strong></p>`
+    : matricule
+      ? `<p class="text-xs text-muted" style="margin-top:8px">Matricule : <strong>${matricule}</strong></p>`
+      : '';
+
+  const box = document.getElementById(contentId);
+  if (!box) {
+    showToast('📧 Vérifiez votre email (' + safeEmail + ') avant de vous connecter');
+    return;
+  }
+
+  box.innerHTML = `
+    <div style="text-align:center;padding:8px 0 4px">
+      <div style="font-size:48px;margin-bottom:12px">📧</div>
+      <h3 style="font-family:'Syne',sans-serif;margin-bottom:8px">Vérifiez votre email</h3>
+      <p class="auth-sub">Un lien de confirmation a été envoyé à <strong>${safeEmail}</strong>.</p>
+      <p class="text-sm text-muted">Ouvrez votre boîte mail et cliquez sur le lien pour activer votre compte ${roleLabel}.</p>
+      ${extraInfo}
+      ${devBlock}
+      <button class="btn btn-cyan w-full" style="margin-top:20px" onclick="resendVerificationEmail('${safeEmail}','${role}')">Renvoyer l'email</button>
+      <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
+        Déjà vérifié ?
+        <a href="#" onclick="${loginFn};return false;" style="color:var(--cyan2);font-weight:600">Se connecter</a>
+      </p>
+    </div>`;
+
+  document.getElementById(modalId).classList.add('open');
+}
+
+async function resendVerificationEmail(email, role) {
+  try {
+    const data = await apiJson('/api/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    });
+    if (data.alreadyVerified) {
+      showToast('✅ Email déjà vérifié — vous pouvez vous connecter');
+      return;
+    }
+    showToast('📧 ' + (data.message || 'Email renvoyé'));
+    if (data.devVerifyUrl) {
+      console.log('Lien de vérification (dev):', data.devVerifyUrl);
+    }
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Impossible de renvoyer l\'email'));
+  }
 }

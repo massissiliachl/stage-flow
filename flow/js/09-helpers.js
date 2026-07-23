@@ -316,7 +316,7 @@ async function submitDemande(companyName){
     demandes.push(data.demande);
     persistDemandeState(data.demande.id);
     closeOverlay('demandeModal');
-    showToast(`📩 Candidature envoyée à ${companyName} — enregistrée en base, réponse sous 48h`);
+    showToast(`📩 Candidature envoyée à ${companyName} — transmise immédiatement à l'entreprise`);
     refreshCurrentView();
   } catch (err) {
     showToast('❌ ' + (err.message || 'Envoi impossible — vérifiez que le Backend tourne'));

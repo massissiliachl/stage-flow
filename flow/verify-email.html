@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StageFlow — Vérification email</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<style>
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+.verify-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:40px 32px;max-width:480px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(11,30,61,.08)}
+.verify-icon{font-size:56px;margin-bottom:16px}
+.verify-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;color:var(--navy)}
+.verify-msg{color:var(--text2);font-size:15px;line-height:1.6;margin-bottom:20px}
+.verify-actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="verify-card">
+  <div class="verify-icon" id="verifyIcon">⏳</div>
+  <h1 class="verify-title" id="verifyTitle">Vérification en cours…</h1>
+  <p class="verify-msg" id="verifyMsg">Nous confirmons votre adresse email.</p>
+  <div class="verify-actions" id="verifyActions" style="display:none"></div>
+</div>
+<script src="js/02-data.js"></script>
+<script>
+(function verifyEmailEntry(){
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const icon = document.getElementById('verifyIcon');
+  const title = document.getElementById('verifyTitle');
+  const msg = document.getElementById('verifyMsg');
+  const actions = document.getElementById('verifyActions');
+
+  function showActions(loginPath, email) {
+    actions.style.display = 'flex';
+    actions.innerHTML = `
+      <a class="btn btn-cyan w-full" href="${loginPath}">Se connecter</a>
+      <a class="btn btn-ghost w-full" href="index.html">Retour à l'accueil</a>`;
+    if (email) {
+      actions.innerHTML += `<p class="text-xs text-muted" style="margin-top:8px">Email : ${email}</p>`;
+    }
+  }
+
+  if (!token) {
+    icon.textContent = '⚠️';
+    title.textContent = 'Lien invalide';
+    msg.textContent = 'Aucun token de vérification n\'a été trouvé. Utilisez le lien reçu par email ou demandez un nouvel envoi depuis la page de connexion.';
+    actions.style.display = 'flex';
+    actions.innerHTML = '<a class="btn btn-cyan w-full" href="index.html">Retour à l\'accueil</a>';
+    return;
+  }
+
+  apiJson('/api/auth/verify-email?token=' + encodeURIComponent(token))
+    .then(function(data) {
+      icon.textContent = '✅';
+      title.textContent = data.alreadyVerified ? 'Email déjà vérifié' : 'Email vérifié !';
+      msg.textContent = data.message || 'Votre compte est activé. Vous pouvez maintenant vous connecter.';
+      showActions(data.loginPath || 'index.html', data.email);
+    })
+    .catch(function(err) {
+      icon.textContent = err.details?.code === 'TOKEN_EXPIRED' ? '⏰' : '❌';
+      title.textContent = err.details?.code === 'TOKEN_EXPIRED' ? 'Lien expiré' : 'Échec de la vérification';
+      msg.textContent = err.message || 'Impossible de vérifier votre email.';
+      actions.style.display = 'flex';
+      const role = err.details?.role === 'entreprise' ? 'entreprise' : 'etudiant';
+      const loginPath = role === 'entreprise' ? 'entreprise.html' : 'etudiant.html';
+      actions.innerHTML = `
+        <a class="btn btn-cyan w-full" href="${loginPath}">Aller à la connexion</a>
+        <a class="btn btn-ghost w-full" href="index.html">Retour à l'accueil</a>`;
+    });
+})();
+</script>
+</body>
+</html>
