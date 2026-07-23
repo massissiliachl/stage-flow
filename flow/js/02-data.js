@@ -39,6 +39,63 @@ function entrepriseMaxDemandeId(entId) {
     .reduce(function(max, d) { return Math.max(max, Number(d.id) || 0); }, 0);
 }
 
+async function syncEntrepriseDemandesFromDb(account, idsBefore, fpBefore) {
+  const entId = Number(account.entrepriseId);
+  const sinceId = entrepriseMaxDemandeId(entId);
+
+  let pulse = null;
+  try {
+    pulse = await apiJson('/api/entreprise/' + entId + '/demandes/pulse?sinceId=' + sinceId);
+  } catch (e) {
+    console.warn('[StageFlow] Pulse demandes:', e.message);
+  }
+
+  if (pulse && pulse.fingerprint === fpBefore) {
+    return { changed: false, newDemandes: [] };
+  }
+
+  if (pulse && pulse.newDemandes && pulse.newDemandes.length) {
+    for (let i = demandes.length - 1; i >= 0; i--) {
+      if (demandes[i].fromDb && Number(demandes[i].entrepriseId) === entId) demandes.splice(i, 1);
+    }
+    pulse.newDemandes.forEach(function(d) { demandes.push(d); });
+    const newOnly = pulse.newDemandes.filter(function(d) { return !idsBefore.has(d.id); });
+    const changed = fpBefore !== entrepriseSyncFingerprint(entId);
+    return { changed: changed, newDemandes: newOnly };
+  }
+
+  try {
+    const data = await apiJson('/api/entreprise/' + entId + '/demandes');
+    for (let i = demandes.length - 1; i >= 0; i--) {
+      if (demandes[i].fromDb && Number(demandes[i].entrepriseId) === entId) demandes.splice(i, 1);
+    }
+    (data.demandes || []).forEach(function(d) { demandes.push(d); });
+    const newDemandes = demandes.filter(function(d) {
+      return d.fromDb && Number(d.entrepriseId) === entId && !idsBefore.has(d.id);
+    });
+    const changed = fpBefore !== entrepriseSyncFingerprint(entId);
+    return { changed: changed, newDemandes: newDemandes };
+  } catch (e) {
+    console.warn('[StageFlow] Liste demandes entreprise:', e.message);
+    return { changed: false, newDemandes: [] };
+  }
+}
+
+async function syncEntrepriseConventionsFromDb(account) {
+  const entId = Number(account.entrepriseId);
+  try {
+    const data = await apiJson('/api/entreprise/' + entId + '/dashboard');
+    for (let i = conventions.length - 1; i >= 0; i--) {
+      if (conventions[i].fromDb && Number(conventions[i].entrepriseId) === entId) conventions.splice(i, 1);
+    }
+    (data.conventions || []).forEach(function(c) { conventions.push(c); });
+    return true;
+  } catch (e) {
+    console.warn('[StageFlow] Conventions entreprise:', e.message);
+    return false;
+  }
+}
+
 async function syncEntrepriseDataFromDb(account) {
   if (!account || !account.entrepriseId) return { changed: false, newDemandes: [] };
   const entId = Number(account.entrepriseId);
@@ -48,39 +105,11 @@ async function syncEntrepriseDataFromDb(account) {
       .filter(function(d) { return d.fromDb && Number(d.entrepriseId) === entId; })
       .map(function(d) { return d.id; })
   );
-  const sinceId = entrepriseMaxDemandeId(entId);
   try {
-    if (sinceId > 0) {
-      const pulse = await apiJson('/api/entreprise/' + entId + '/demandes/pulse?sinceId=' + sinceId);
-      if (pulse.fingerprint === fpBefore) {
-        return { changed: false, newDemandes: [] };
-      }
-      if (pulse.newDemandes && pulse.newDemandes.length) {
-        pulse.newDemandes.forEach(function(d) {
-          if (!demandes.some(function(x) { return x.id === d.id; })) demandes.push(d);
-        });
-        const newOnly = pulse.newDemandes.filter(function(d) { return !idsBefore.has(d.id); });
-        if (newOnly.length) {
-          return { changed: true, newDemandes: newOnly };
-        }
-      }
-    }
-
-    const data = await apiJson('/api/entreprise/' + entId + '/dashboard');
-    for (let i = demandes.length - 1; i >= 0; i--) {
-      if (demandes[i].fromDb && Number(demandes[i].entrepriseId) === entId) demandes.splice(i, 1);
-    }
-    for (let i = conventions.length - 1; i >= 0; i--) {
-      if (conventions[i].fromDb && Number(conventions[i].entrepriseId) === entId) conventions.splice(i, 1);
-    }
-    (data.demandes || []).forEach(function(d) { demandes.push(d); });
-    (data.conventions || []).forEach(function(c) { conventions.push(c); });
+    const demandeSync = await syncEntrepriseDemandesFromDb(account, idsBefore, fpBefore);
+    await syncEntrepriseConventionsFromDb(account);
     await loadEntrepriseProfileFromDb(account);
-    const newDemandes = demandes.filter(function(d) {
-      return d.fromDb && Number(d.entrepriseId) === entId && !idsBefore.has(d.id);
-    });
-    const changed = fpBefore !== entrepriseSyncFingerprint(entId);
-    return { changed: changed, newDemandes: newDemandes };
+    return demandeSync;
   } catch (e) {
     console.warn('[StageFlow] Données entreprise (base de données):', e.message);
     return { changed: false, newDemandes: [] };

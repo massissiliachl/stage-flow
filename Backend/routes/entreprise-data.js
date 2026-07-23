@@ -298,6 +298,15 @@ router.get('/:entrepriseId/demandes/pulse', async (req, res) => {
         [entrepriseId, sinceId]
       );
       newDemandes = fresh.rows.map(mapDemande);
+    } else {
+      const all = await pool.query(
+        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
+         FROM stage_demands
+         WHERE entreprise_id = $1
+         ORDER BY id ASC`,
+        [entrepriseId]
+      );
+      newDemandes = all.rows.map(mapDemande);
     }
 
     const row = summary.rows[0] || { pending_count: 0, max_id: 0, fingerprint: '' };
@@ -313,6 +322,50 @@ router.get('/:entrepriseId/demandes/pulse', async (req, res) => {
     res.status(500).json({ error: 'Erreur lors de la vérification des demandes' });
   }
 });
+
+/**
+ * GET /api/entreprise/:entrepriseId/demandes
+ * Liste des candidatures reçues (sans dépendre du schéma conventions)
+ */
+router.get('/:entrepriseId/demandes', async (req, res) => {
+  const entrepriseId = parseInt(req.params.entrepriseId, 10);
+  if (!entrepriseId || Number.isNaN(entrepriseId)) {
+    return res.status(400).json({ error: 'Identifiant entreprise invalide' });
+  }
+
+  try {
+    const pool = getPool();
+    const result = await pool.query(
+      `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
+       FROM stage_demands
+       WHERE entreprise_id = $1
+       ORDER BY demand_date DESC NULLS LAST, id DESC`,
+      [entrepriseId]
+    );
+    res.json({ demandes: result.rows.map(mapDemande) });
+  } catch (err) {
+    console.error('Demandes entreprise error:', err.message);
+    res.status(500).json({ error: 'Erreur lors du chargement des demandes' });
+  }
+});
+
+async function fetchEntrepriseConventions(pool, entrepriseId) {
+  const extended = `SELECT id, reference, student_name, entreprise_nom, theme, periode, status,
+      signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+      document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin, entreprise_id
+    FROM conventions WHERE entreprise_id = $1 ORDER BY id DESC`;
+  const basic = `SELECT id, reference, student_name, entreprise_nom, theme, periode, status,
+      signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+      entreprise_id
+    FROM conventions WHERE entreprise_id = $1 ORDER BY id DESC`;
+
+  try {
+    return await pool.query(extended, [entrepriseId]);
+  } catch (err) {
+    console.warn('Dashboard conventions (schéma étendu) — repli:', err.message);
+    return pool.query(basic, [entrepriseId]);
+  }
+}
 
 /**
  * GET /api/entreprise/:entrepriseId/dashboard
@@ -343,15 +396,7 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
          ORDER BY demand_date DESC NULLS LAST, id DESC`,
         [entrepriseId]
       ),
-      pool.query(
-        `SELECT id, reference, student_name, entreprise_nom, theme, periode, status,
-                signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-                document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin
-         FROM conventions
-         WHERE entreprise_id = $1
-         ORDER BY id DESC`,
-        [entrepriseId]
-      ),
+      fetchEntrepriseConventions(pool, entrepriseId),
     ]);
 
     res.json({
