@@ -62,6 +62,117 @@ function mapDemandeRow(row) {
   };
 }
 
+function normalizeStudentUserId(studentId) {
+  if (studentId == null || studentId === '') return null;
+  const raw = String(studentId).trim();
+  if (!raw) return null;
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRe.test(raw) ? raw : null;
+}
+
+async function loadStudentDemandMeta(pool, userId) {
+  let faculteVal = '';
+  let deptVal = '';
+  if (!userId) return { faculteVal, deptVal };
+  try {
+    const meta = await pool.query(
+      `SELECT s.faculte, s.departement, s.specialty, u.student_data
+       FROM users u
+       LEFT JOIN students s ON s.user_id = u.id
+       WHERE u.id = $1 AND u.role = 'etudiant'
+       LIMIT 1`,
+      [userId]
+    );
+    if (meta.rows.length) {
+      const sd = meta.rows[0].student_data && typeof meta.rows[0].student_data === 'object'
+        ? meta.rows[0].student_data
+        : {};
+      faculteVal = (meta.rows[0].faculte || sd.faculte || '').trim();
+      deptVal = (meta.rows[0].departement || sd.departement || sd.dept || meta.rows[0].specialty || sd.specialty || '').trim();
+    }
+  } catch (err) {
+    console.warn('loadStudentDemandMeta (schéma étendu) — repli:', err.message);
+    const meta = await pool.query(
+      `SELECT s.faculte, s.departement, s.specialty
+       FROM users u
+       LEFT JOIN students s ON s.user_id = u.id
+       WHERE u.id = $1 AND u.role = 'etudiant'
+       LIMIT 1`,
+      [userId]
+    );
+    if (meta.rows.length) {
+      faculteVal = (meta.rows[0].faculte || '').trim();
+      deptVal = (meta.rows[0].departement || meta.rows[0].specialty || '').trim();
+    }
+  }
+  return { faculteVal, deptVal };
+}
+
+async function insertStageDemandRow(pool, payload) {
+  const {
+    studentUserId,
+    nameTrim,
+    entId,
+    companyName,
+    themeTrim,
+    faculteVal,
+    deptVal,
+    dureeTrim,
+  } = payload;
+
+  const attempts = [
+    {
+      name: 'schéma complet',
+      run: (sid) => pool.query(
+        `INSERT INTO stage_demands (
+           student_id, student_name, entreprise_id, entreprise_nom,
+           theme, encadrant, status, demand_date, faculte, departement, duree
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE, $7, $8, $9)
+         RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, faculte, departement, duree`,
+        [sid, nameTrim, entId, companyName, themeTrim, null, faculteVal || null, deptVal || null, dureeTrim]
+      ),
+    },
+    {
+      name: 'sans faculte/departement',
+      run: (sid) => pool.query(
+        `INSERT INTO stage_demands (
+           student_id, student_name, entreprise_id, entreprise_nom,
+           theme, encadrant, status, demand_date, duree
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE, $7)
+         RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree`,
+        [sid, nameTrim, entId, companyName, themeTrim, null, dureeTrim]
+      ),
+    },
+    {
+      name: 'sans student_id',
+      run: () => pool.query(
+        `INSERT INTO stage_demands (
+           student_name, entreprise_id, entreprise_nom,
+           theme, encadrant, status, demand_date
+         ) VALUES ($1, $2, $3, $4, $5, 'pending', CURRENT_DATE)
+         RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant`,
+        [nameTrim, entId, companyName, themeTrim, null]
+      ),
+    },
+  ];
+
+  let sid = studentUserId;
+  let lastErr;
+  for (const attempt of attempts) {
+    try {
+      const result = await attempt.run(sid);
+      return result.rows[0];
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Insert demande (${attempt.name}) — échec:`, err.message);
+      if (err.code === '23503' && sid) {
+        sid = null;
+      }
+    }
+  }
+  throw lastErr || new Error('Insert demande impossible');
+}
+
 async function isStudentStageLocked(pool, studentName) {
   const result = await pool.query(
     `SELECT id FROM conventions
@@ -165,47 +276,24 @@ demandesRouter.post('/', async (req, res) => {
 
     let faculteVal = (faculte || '').trim();
     let deptVal = (departement || '').trim();
-    const sid = studentId ? parseInt(studentId, 10) : null;
-    if (sid && !Number.isNaN(sid) && (!faculteVal || !deptVal)) {
-      const meta = await pool.query(
-        `SELECT s.faculte, s.departement, s.specialty, u.student_data
-         FROM users u
-         LEFT JOIN students s ON s.user_id = u.id
-         WHERE u.id = $1 AND u.role = 'etudiant'
-         LIMIT 1`,
-        [sid]
-      );
-      if (meta.rows.length) {
-        const sd = meta.rows[0].student_data && typeof meta.rows[0].student_data === 'object'
-          ? meta.rows[0].student_data
-          : {};
-        if (!faculteVal) faculteVal = (meta.rows[0].faculte || sd.faculte || '').trim();
-        if (!deptVal) {
-          deptVal = (meta.rows[0].departement || sd.departement || sd.dept || meta.rows[0].specialty || sd.specialty || '').trim();
-        }
-      }
+    const studentUserId = normalizeStudentUserId(studentId);
+    if (studentUserId && (!faculteVal || !deptVal)) {
+      const meta = await loadStudentDemandMeta(pool, studentUserId);
+      if (!faculteVal) faculteVal = meta.faculteVal;
+      if (!deptVal) deptVal = meta.deptVal;
     }
 
-    const result = await pool.query(
-      `INSERT INTO stage_demands (
-         student_id, student_name, entreprise_id, entreprise_nom,
-         theme, encadrant, status, demand_date, faculte, departement, duree
-       ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE, $7, $8, $9)
-       RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, faculte, departement, duree`,
-      [
-        sid || null,
-        nameTrim,
-        entId,
-        companyName,
-        themeTrim,
-        null,
-        faculteVal || null,
-        deptVal || null,
-        dureeTrim,
-      ]
-    );
+    const row = await insertStageDemandRow(pool, {
+      studentUserId,
+      nameTrim,
+      entId,
+      companyName,
+      themeTrim,
+      faculteVal,
+      deptVal,
+      dureeTrim,
+    });
 
-    const row = result.rows[0];
     const motivation = message ? String(message).trim() : '';
     res.status(201).json({
       message: 'Demande envoyée — visible immédiatement par l\'entreprise',
@@ -215,7 +303,7 @@ demandesRouter.post('/', async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Create demande error:', err.message);
+    console.error('Create demande error:', err.message, err.stack);
     res.status(500).json({ error: 'Erreur lors de l\'envoi de la demande' });
   }
 });
