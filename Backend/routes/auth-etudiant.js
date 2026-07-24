@@ -3,6 +3,7 @@ const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
+const { listStudentUniversities, isValidStudentFaculty } = require('../lib/student-academic');
 
 const router = express.Router();
 
@@ -90,6 +91,10 @@ router.get('/ping', (req, res) => {
   res.json({ ok: true, service: 'auth-etudiant' });
 });
 
+router.get('/universities', (req, res) => {
+  res.json({ universities: listStudentUniversities() });
+});
+
 router.post('/register', async (req, res) => {
   const {
     name,
@@ -118,10 +123,21 @@ router.post('/register', async (req, res) => {
 
   const encadrantTrim = (encadrant || '').trim();
 
+  const universityTrim = (university || '').trim();
+  const faculteTrim = (faculte || '').trim();
+
   if (!nameTrim || !emailTrim || !matriculeTrim || !password || !encadrantTrim) {
     return res.status(400).json({
       error: 'Nom, email, matricule, encadrant universitaire et mot de passe sont obligatoires',
     });
+  }
+
+  if (!universityTrim || !faculteTrim) {
+    return res.status(400).json({ error: 'Université et faculté sont obligatoires' });
+  }
+
+  if (!isValidStudentFaculty(universityTrim, faculteTrim)) {
+    return res.status(400).json({ error: 'Université ou faculté invalide' });
   }
 
   if (password.length < 6) {
@@ -156,8 +172,8 @@ router.post('/register', async (req, res) => {
       matricule: matriculeTrim,
       specialty: (specialty || '').trim(),
       promo: (promo || '').trim(),
-      university: (university || 'Université Abderrahmane Mira — Béjaïa').trim(),
-      faculte: (faculte || '').trim(),
+      university: universityTrim,
+      faculte: faculteTrim,
       departement: (departement || '').trim(),
       encadrant: encadrantTrim,
       groupType: normalizedGroupType,

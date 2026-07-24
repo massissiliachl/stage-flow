@@ -3,6 +3,56 @@
 // ──────────────────────────────────
 let currentRegTab = 'entreprise';
 
+const STUDENT_REGISTER_UNIVERSITIES = [
+  {
+    name: 'Université Abderrahmane Mira — Béjaïa',
+    faculties: [
+      'Faculté de Technologie',
+      'Faculté des Sciences Exactes',
+      'Faculté des Sciences de la Nature et de la Vie',
+      'Faculté des Lettres et des Langues',
+      'Faculté de Droit et des Sciences Politiques',
+      'Faculté de Médecine',
+      'Faculté des Sciences Économiques, Commerciales et des Sciences de Gestion',
+      'Faculté des Sciences Humaines et Sociales',
+    ],
+  },
+];
+
+function studentRegUniversityOptionsHtml() {
+  return ['<option value="">— Choisir votre université —</option>']
+    .concat(STUDENT_REGISTER_UNIVERSITIES.map(function(u) {
+      return '<option value="' + escapeHtmlAttr(u.name) + '">' + escapeHtmlAttr(u.name) + '</option>';
+    }))
+    .join('');
+}
+
+function onStudentRegUniversityChange() {
+  const uniSel = document.getElementById('reg_stu_university');
+  const facSel = document.getElementById('reg_stu_faculte');
+  if (!uniSel || !facSel) return;
+  const uniName = (uniSel.value || '').trim();
+  const uni = STUDENT_REGISTER_UNIVERSITIES.find(function(u) { return u.name === uniName; });
+  facSel.innerHTML = '<option value="">— Choisir votre faculté —</option>';
+  if (!uni) {
+    facSel.disabled = true;
+    return;
+  }
+  facSel.disabled = false;
+  uni.faculties.forEach(function(f) {
+    const opt = document.createElement('option');
+    opt.value = f;
+    opt.textContent = f;
+    facSel.appendChild(opt);
+  });
+}
+
+function isValidStudentRegFaculty(universityName, faculteName) {
+  const uni = STUDENT_REGISTER_UNIVERSITIES.find(function(u) { return u.name === (universityName || '').trim(); });
+  if (!uni) return false;
+  return uni.faculties.includes((faculteName || '').trim());
+}
+
 function openRegisterModal(){
   currentRegTab = 'entreprise';
   document.getElementById('registerModal').classList.add('open');
@@ -82,15 +132,17 @@ function renderStudentRegisterForm(){
     </div>
 
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🎓 Parcours académique</div>
+    <div class="form-group"><label class="form-label">Université *</label>
+      <select id="reg_stu_university" class="form-select" onchange="onStudentRegUniversityChange()">${studentRegUniversityOptionsHtml()}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Faculté *</label>
+      <select id="reg_stu_faculte" class="form-select" disabled><option value="">— Choisir d'abord votre université —</option></select>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Spécialité *</label><input id="reg_stu_specialty" class="form-input" placeholder="Ex: Master 2 — Communication"></div>
       <div class="form-group"><label class="form-label">Promotion</label><input id="reg_stu_promo" class="form-input" placeholder="Ex: 2025-2026"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Faculté</label><input id="reg_stu_faculte" class="form-input" placeholder="Ex: Faculté SHS"></div>
-      <div class="form-group"><label class="form-label">Département</label><input id="reg_stu_departement" class="form-input" placeholder="Ex: Sciences de la Communication"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Université</label><input id="reg_stu_university" class="form-input" value="Université Abderrahmane Mira — Béjaïa"></div>
+    <div class="form-group"><label class="form-label">Département</label><input id="reg_stu_departement" class="form-input" placeholder="Ex: Sciences de la Communication"></div>
     <div class="form-group"><label class="form-label">Encadrant universitaire *</label><input id="reg_stu_encadrant" class="form-input" placeholder="Ex: Dr. Hider Fouzia — Département SIC"></div>
     <div class="form-group"><label class="form-label">Thème PFE (optionnel)</label><input id="reg_stu_theme" class="form-input" placeholder="Ex: Usage de l'IA en communication"></div>
 
@@ -190,8 +242,12 @@ async function submitRegisterEtudiant(){
   const groupType = document.getElementById('reg_stu_group_type')?.value || 'solo';
   const groupMembers = collectStudentGroupMembers(groupType);
 
-  if (!name || !matricule || !email || !specialty || !encadrant || !pw) {
-    showToast('⚠️ Nom, matricule, email, spécialité, encadrant et mot de passe sont obligatoires');
+  if (!name || !matricule || !email || !specialty || !encadrant || !pw || !university || !faculte) {
+    showToast('⚠️ Nom, matricule, email, université, faculté, spécialité, encadrant et mot de passe sont obligatoires');
+    return;
+  }
+  if (!isValidStudentRegFaculty(university, faculte)) {
+    showToast('⚠️ Veuillez choisir une faculté valide pour votre université');
     return;
   }
   if (!isValidEmail(email)) { showToast('⚠️ Adresse email invalide'); return; }
