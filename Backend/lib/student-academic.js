@@ -6,6 +6,8 @@ const STUDENT_UNIVERSITIES = [
   {
     id: 'uam-bejaia',
     name: 'Université Abderrahmane Mira — Béjaïa',
+    logoUrl: 'assets/logos/universite-bejaia.png',
+    shortNameFr: 'Université de Béjaïa',
     faculties: [
       'Faculté de Technologie',
       'Faculté des Sciences Exactes',
@@ -21,7 +23,13 @@ const STUDENT_UNIVERSITIES = [
 
 function listStudentUniversities() {
   return STUDENT_UNIVERSITIES.map(function(u) {
-    return { id: u.id, name: u.name, faculties: u.faculties.slice() };
+    return {
+      id: u.id,
+      name: u.name,
+      logoUrl: u.logoUrl || '',
+      shortNameFr: u.shortNameFr || u.name,
+      faculties: u.faculties.slice(),
+    };
   });
 }
 

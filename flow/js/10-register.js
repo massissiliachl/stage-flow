@@ -3,9 +3,12 @@
 // ──────────────────────────────────
 let currentRegTab = 'entreprise';
 
-const STUDENT_REGISTER_UNIVERSITIES = [
+const STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistration === 'function'
+  ? getUniversitiesForStudentRegistration()
+  : [
   {
     name: 'Université Abderrahmane Mira — Béjaïa',
+    logoUrl: 'assets/logos/universite-bejaia.png',
     faculties: [
       'Faculté de Technologie',
       'Faculté des Sciences Exactes',
@@ -36,6 +39,7 @@ function onStudentRegUniversityChange() {
   facSel.innerHTML = '<option value="">— Choisir votre faculté —</option>';
   if (!uni) {
     facSel.disabled = true;
+    if (typeof updateStudentRegUniversityBranding === 'function') updateStudentRegUniversityBranding();
     return;
   }
   facSel.disabled = false;
@@ -45,6 +49,7 @@ function onStudentRegUniversityChange() {
     opt.textContent = f;
     facSel.appendChild(opt);
   });
+  if (typeof updateStudentRegUniversityBranding === 'function') updateStudentRegUniversityBranding();
 }
 
 function isValidStudentRegFaculty(universityName, faculteName) {
@@ -132,6 +137,7 @@ function renderStudentRegisterForm(){
     </div>
 
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🎓 Parcours académique</div>
+    <div id="reg_stu_university_branding" style="display:none;margin-bottom:14px"></div>
     <div class="form-group"><label class="form-label">Université *</label>
       <select id="reg_stu_university" class="form-select" onchange="onStudentRegUniversityChange()">${studentRegUniversityOptionsHtml()}</select>
     </div>
@@ -172,6 +178,7 @@ function renderStudentRegisterForm(){
       <a href="#" onclick="openStudentLoginModal();return false;" style="color:var(--cyan2);font-weight:600">Se connecter</a>
     </p>`;
   toggleStudentGroupFields('solo');
+  if (typeof updateStudentRegUniversityBranding === 'function') updateStudentRegUniversityBranding();
 }
 
 function toggleStudentGroupFields(groupType){

@@ -10,12 +10,27 @@ function buildAttestationTemplate(conv) {
   const parties = sig.parties || {};
   const st = parties.student || {};
   const ent = parties.entreprise || {};
+  const university = st.university || 'Université Abderrahmane Mira — Béjaïa';
+  const isBejaia = university.includes('Béjaïa') || university.includes('Bejaia') || university.includes('Mira');
+
+  const branding = {
+    id: isBejaia ? 'uam-bejaia' : 'generic',
+    headerNameFr: isBejaia ? 'UNIVERSITÉ DE BÉJAÏA' : String(university).toUpperCase(),
+    ministryAr: 'وزارة التعليم العالي والبحث العلمي',
+    universityAr: isBejaia ? 'جامعة بجاية' : university,
+    taglineAmazigh: isBejaia ? 'Tasdawit n Bgayet' : '',
+    enrolledAt: isBejaia ? "l'Université de Béjaïa" : university,
+    city: 'Béjaïa',
+    logoUrl: isBejaia ? 'assets/logos/universite-bejaia.png' : '',
+    displayName: isBejaia ? 'Université de Béjaïa' : university,
+  };
 
   return {
     studentName: conv.student_name,
     matricule: st.matricule || '',
     specialty: st.specialty || conv.departement || '',
-    university: st.university || 'Université Abderrahmane Mira — Béjaïa',
+    university,
+    branding,
     faculte: conv.faculte || st.faculte || '',
     departement: conv.departement || st.departement || '',
     promotion: st.promotion || '',
@@ -26,8 +41,10 @@ function buildAttestationTemplate(conv) {
     dateFin: conv.date_fin || null,
     conventionRef: conv.reference || '',
     entrepriseNom: conv.entreprise_nom,
+    entrepriseWilaya: ent.wilaya || '',
     entrepriseAdresse: ent.adresse || '',
     encadrantEntreprise: ent.encadrant || '—',
+    issuerTitle: conv.faculte ? (`Le Doyen de la ${conv.faculte}`) : 'Le Chef de service des enseignements, des stages et de l\'évaluation',
   };
 }
 

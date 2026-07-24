@@ -690,7 +690,12 @@ function isCanvasMostlyBlank(canvas) {
   }
 }
 
-function exportConventionPdfViaIframe(innerHtml, filename, title) {
+function exportConventionPdfViaIframe(innerHtml, filename, title, stylesFn) {
+  const styles = typeof stylesFn === 'function' ? stylesFn() : conventionPdfStyles();
+  const useAttestation = stylesFn === attestationOfficialStyles;
+  const bodyInner = useAttestation
+    ? innerHtml
+    : '<div class="pdf-preview">' + innerHtml + '</div>';
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = 'position:fixed;left:0;top:0;width:794px;border:0;margin:0;padding:0;z-index:2147483647;background:#fff;';
@@ -699,7 +704,7 @@ function exportConventionPdfViaIframe(innerHtml, filename, title) {
   const iwin = iframe.contentWindow;
   const idoc = iwin.document;
   idoc.open();
-  idoc.write('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + (title || 'Convention') + '</title><style>' + conventionPdfStyles() + '</style></head><body style="margin:0;padding:0;background:#fff;"><div class="pdf-preview">' + innerHtml + '</div></body></html>');
+  idoc.write('<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>' + (title || 'Document') + '</title><style>' + styles + '</style></head><body style="margin:0;padding:' + (useAttestation ? '12px' : '0') + ';background:#fff;">' + bodyInner + '</body></html>');
   idoc.close();
 
   let done = false;
@@ -715,7 +720,7 @@ function exportConventionPdfViaIframe(innerHtml, filename, title) {
 
   const attempt = function() {
     if (done) return;
-    const target = idoc.querySelector('.pdf-preview');
+    const target = idoc.querySelector(useAttestation ? '.attestation-sheet' : '.pdf-preview') || idoc.body;
     if (!target || target.scrollHeight < 20) {
       fallback();
       return;
@@ -778,16 +783,22 @@ function exportConventionPdfViaIframe(innerHtml, filename, title) {
 
 function generatePdfFromElement(innerHtml, filename, title, options){
   options = options || {};
-  const isConvention = options.conventionPdf || (innerHtml && innerHtml.includes('pdf-header'));
-  const runPrintFallback = function() { printFallback(innerHtml, title, isConvention); };
+  const isAttestation = options.attestationPdf || (innerHtml && innerHtml.includes('attestation-sheet'));
+  const isConvention = !isAttestation && (options.conventionPdf || (innerHtml && innerHtml.includes('pdf-header')));
+  const runPrintFallback = function() { printFallback(innerHtml, title, isConvention || isAttestation); };
 
   if (!innerHtml || !String(innerHtml).trim()) {
-    showToast('âš ï¸ Contenu PDF vide â€” ouvrez l\'aperÃ§u de la convention');
+    showToast('âš ï¸ Contenu PDF vide â€” ouvrez l\'aperÃ§u de la convention');
     return;
   }
 
   if (isConvention) {
     exportConventionPdfViaIframe(innerHtml, filename, title);
+    return;
+  }
+
+  if (isAttestation) {
+    exportConventionPdfViaIframe(innerHtml, filename, title, attestationOfficialStyles);
     return;
   }
 
@@ -1146,23 +1157,36 @@ function openRapportViewByConv(convId) {
 function buildAttestationTemplateLocal(conv, u) {
   const cached = state.stageAttestationTemplates && state.stageAttestationTemplates[conv.id];
   if (cached) return cached;
+  const university = u.university || conv.studentUniversity || 'Université Abderrahmane Mira — Béjaïa';
+  const branding = typeof getAttestationUniversityBranding === 'function'
+    ? getAttestationUniversityBranding(university)
+    : { enrolledAt: university, city: 'Béjaïa', headerNameFr: university.toUpperCase() };
+  const periodStart = conv.dateDebut || conv.date_debut;
+  const periodEnd = conv.dateFin || conv.date_fin;
+  let periodeLabel = conv.periode || '';
+  if (periodStart && periodEnd) {
+    periodeLabel = formatStageDate(periodStart) + ' au ' + formatStageDate(periodEnd);
+  }
   return {
     studentName: u.name || conv.etudiant,
     matricule: u.matricule || conv.studentMatricule || '',
     specialty: u.specialty || conv.studentSpecialty || conv.departement || '',
-    university: u.university || conv.studentUniversity || 'Université Abderrahmane Mira — Béjaïa',
+    university,
+    branding,
     faculte: conv.faculte || u.faculte || '',
     departement: conv.departement || u.departement || '',
     promotion: u.promo || conv.studentPromotion || '',
     encadrantUniversitaire: u.encadrant || conv.studentEncadrant || '',
     theme: conv.theme || u.theme || '',
-    periode: conv.periode || '',
-    dateDebut: conv.dateDebut || conv.date_debut || null,
-    dateFin: conv.dateFin || conv.date_fin || null,
+    periode: periodeLabel || conv.periode || '',
+    dateDebut: periodStart,
+    dateFin: periodEnd,
     conventionRef: conv.reference || ('SF-2026-0' + (conv.id + 46)),
     entrepriseNom: conv.company || conv.entreprise_nom || '',
+    entrepriseWilaya: conv.entrepriseWilaya || '',
     entrepriseAdresse: conv.entrepriseAdresse || '',
     encadrantEntreprise: conv.encadrant_entreprise || '—',
+    issuerTitle: conv.faculte ? ('Le Doyen de la ' + conv.faculte) : 'Le Chef de service des enseignements, des stages et de l\'évaluation',
   };
 }
 
@@ -1192,45 +1216,67 @@ function attestationPrefilledFieldsHtml(t) {
 
 function buildAttestationPdfHtml(att, template) {
   const t = template || att.prefilled || {};
-  const esc = (v) => String(v || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const branding = getAttestationUniversityBranding(t.university);
+  const b = Object.assign({}, branding, t.branding || {});
+  if (!b.logoHtml && b.logoUrl) {
+    b.logoHtml = typeof universityLogoHtml === 'function'
+      ? universityLogoHtml(b.logoUrl, b.displayName || t.university)
+      : '<img src="' + b.logoUrl + '" alt="" style="max-height:78px;max-width:220px;object-fit:contain">';
+  }
+  const esc = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const missions = att ? att.missions : '';
   const competences = att ? att.competences : '';
   const commentaire = att ? att.commentaire : '';
+  const periodFrom = t.dateDebut ? formatStageDate(t.dateDebut) : (t.periode ? t.periode.split(' au ')[0] : '');
+  const periodTo = t.dateFin ? formatStageDate(t.dateFin) : (t.periode && t.periode.includes(' au ') ? t.periode.split(' au ')[1] : t.periode);
+  const stagePlace = [t.entrepriseNom, t.entrepriseWilaya].filter(Boolean).join(' — ') || t.entrepriseNom;
+  const faitLe = new Date().toLocaleDateString('fr-FR');
+  const issuer = t.issuerTitle || t.encadrantUniversitaire || 'Le Chef de service des enseignements, des stages et de l\'évaluation';
+
+  let annexe = '';
+  if (missions && !String(missions).startsWith('(')) {
+    annexe += '<div class="att-annexe"><h5>Missions réalisées</h5><p style="white-space:pre-wrap;margin:0">' + esc(missions) + '</p></div>';
+  }
+  if (competences && !String(competences).startsWith('(')) {
+    annexe += '<div class="att-annexe"><h5>Compétences acquises</h5><p style="white-space:pre-wrap;margin:0">' + esc(competences) + '</p></div>';
+  }
+  if (commentaire) {
+    annexe += '<div class="att-annexe"><h5>Commentaire</h5><p style="white-space:pre-wrap;margin:0">' + esc(commentaire) + '</p></div>';
+  }
+
   return `
-    <div class="pdf-header">
-      <div class="uni-name">${esc(t.university)}</div>
-      <div class="doc-title">Attestation de stage</div>
-      <div class="doc-ref">${esc(t.conventionRef)} · ${new Date().toLocaleDateString('fr-DZ')}</div>
+  <div class="attestation-sheet">
+    <div class="att-rep">République Algérienne Démocratique et Populaire</div>
+    <div class="att-header-grid">
+      <div class="att-header-side left">
+        <div class="att-ministry">Ministère de l'Enseignement Supérieur et de la Recherche Scientifique</div>
+        <div class="att-uni-name">${esc(b.headerNameFr || t.university)}</div>
+        ${b.taglineAmazigh ? `<div style="font-size:9px;margin-top:4px;color:#1B365D">${esc(b.taglineAmazigh)}</div>` : ''}
+      </div>
+      <div class="att-logo-center">${b.logoHtml || ''}</div>
+      <div class="att-header-side right">
+        <div class="att-ministry">${esc(b.ministryAr || '')}</div>
+        <div class="att-uni-name">${esc(b.universityAr || b.displayName || t.university)}</div>
+      </div>
     </div>
-    <div class="pdf-section">
-      <h4>Identité du stagiaire</h4>
-      <div class="pdf-field"><label>Nom et prénom :</label><div class="val">${esc(t.studentName)}</div></div>
-      <div class="pdf-field"><label>Matricule :</label><div class="val">${esc(t.matricule)}</div></div>
-      <div class="pdf-field"><label>Spécialité :</label><div class="val">${esc(t.specialty)}</div></div>
-      <div class="pdf-field"><label>Faculté / Département :</label><div class="val">${esc(t.faculte)} · ${esc(t.departement)}</div></div>
-      <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">${esc(t.encadrantUniversitaire)}</div></div>
+    <div class="att-title">Attestation de Stage</div>
+    <div class="att-body">
+      <div class="att-line">Je, soussigné(e) : ${attestationBlankLine(issuer, 200)}</div>
+      <div class="att-line">Que l'étudiant(e) : ${attestationBlankLine(t.studentName, 220)}</div>
+      <div class="att-line">né(e) le : ${attestationBlankLine('', 90)} à ${attestationBlankLine('', 90)}</div>
+      <div class="att-line">Inscrit(e) à ${attestationBlankLine(b.enrolledAt || t.university, 240)}</div>
+      <div class="att-line">A effectué un stage dans la filière ${attestationBlankLine(t.specialty || t.departement, 180)}</div>
+      <div class="att-line">A ${attestationBlankLine(stagePlace, 260)}</div>
+      <div class="att-line">Durant la période de ${attestationBlankLine(periodFrom, 80)} à ${attestationBlankLine(periodTo, 80)}</div>
+      <div class="att-line">Fait à ${attestationBlankLine(b.city || 'Béjaïa', 80)} Le ${attestationBlankLine(faitLe, 90)}</div>
     </div>
-    <div class="pdf-section">
-      <h4>Stage en entreprise</h4>
-      <div class="pdf-field"><label>Organisme d'accueil :</label><div class="val">${esc(t.entrepriseNom)}</div></div>
-      <div class="pdf-field"><label>Encadrant entreprise :</label><div class="val">${esc(t.encadrantEntreprise)}</div></div>
-      <div class="pdf-field"><label>Thème :</label><div class="val">${esc(t.theme)}</div></div>
-      <div class="pdf-field"><label>Période :</label><div class="val">${esc(t.periode)}${t.dateDebut ? ' — du ' + formatStageDate(t.dateDebut) : ''}${t.dateFin ? ' au ' + formatStageDate(t.dateFin) : ''}</div></div>
+    <div class="att-footer">
+      <div class="att-footer-col">Le Chef de Service des Enseignements des Stages et de l'Evaluation</div>
+      <div class="att-footer-col">Le Responsable de l'Etablissement ou l'Administration d'accueil</div>
     </div>
-    <div class="pdf-section">
-      <h4>Missions réalisées</h4>
-      <p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(missions || '—')}</p>
-    </div>
-    <div class="pdf-section">
-      <h4>Compétences acquises</h4>
-      <p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(competences || '—')}</p>
-    </div>
-    ${commentaire ? `<div class="pdf-section"><h4>Commentaire du stagiaire</h4><p style="font-size:12px;color:#444;line-height:1.7;white-space:pre-wrap">${esc(commentaire)}</p></div>` : ''}
-    <div class="pdf-section" style="margin-top:24px">
-      <div class="pdf-field"><label>Fait à Béjaïa, le :</label><div class="val">${new Date().toLocaleDateString('fr-FR')}</div></div>
-      <div class="pdf-field"><label>Signature du stagiaire :</label><div class="val">_________________________</div></div>
-      <div class="pdf-field"><label>Cachet et signature entreprise :</label><div class="val">_________________________</div></div>
-    </div>`;
+    <div class="att-legal">Cette attestation est délivrée pour servir et faire valoir ce que de droit</div>
+    ${annexe}
+  </div>`;
 }
 
 function openAttestationPreviewModal(convId) {
@@ -1251,7 +1297,7 @@ function openAttestationPreviewModal(convId) {
     ${attestationPrefilledFieldsHtml(t)}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
-      <button class="btn btn-ghost" onclick="downloadAttestationTemplatePdf(${convId})">⬇ Télécharger le modèle</button>
+      <button class="btn btn-ghost" onclick="downloadAttestationTemplatePdf(${convId})">⬇ Télécharger le modèle (PDF officiel)</button>
       ${isStagePeriodEnded(conv) && !getStudentStageAttestation(conv) ? `<button class="btn btn-cyan" onclick="openSubmitAttestationModal(${convId})">✏️ Compléter et envoyer</button>` : ''}
     </div>`;
   modal.classList.add('open');
