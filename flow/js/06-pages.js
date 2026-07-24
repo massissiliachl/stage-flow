@@ -159,7 +159,7 @@ ${(()=>{ const myDemandes = typeof getStudentDemandes==='function' ? getStudentD
 'convention':`
 <div class="page-header">
   <h2>📄 Ma convention de stage</h2>
-  <p>Convention dématérialisée — Signature électronique conforme loi n°15-04</p>
+  <p>Convention dématérialisée — Suivi et validation en ligne</p>
 </div>
 ${(()=>{
   // Convention étudiant — priorité à la convention signée en base
@@ -863,7 +863,7 @@ ${state.user.type==='universite' ? `
 <div class="card mb16">
   <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border-radius:var(--r2);padding:14px">
     <span style="font-size:20px">🔒</span>
-    <div><div class="text-sm" style="font-weight:500">Archivage conforme loi n°15-04 · Chiffrement AES-256</div><div class="text-xs text-muted">Tous les documents sont horodatés et signés électroniquement</div></div>
+    <div><div class="text-sm" style="font-weight:500">Archivage sécurisé · Chiffrement AES-256</div><div class="text-xs text-muted">Tous les documents sont horodatés et conservés en base</div></div>
   </div>
 </div>
 ${state.user.type==='universite' ? `
