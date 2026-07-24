@@ -2,6 +2,125 @@
 // CONVENTION MODAL
 // ══════════════════════════════════
 
+function conventionPartyStudent(conv) {
+  return (conv.parties || (conv.signatures && conv.signatures.parties) || {}).student || {};
+}
+
+function conventionPartyEntreprise(conv) {
+  return (conv.parties || (conv.signatures && conv.signatures.parties) || {}).entreprise || {};
+}
+
+/** Même champs / titres pour tous — valeurs propres à chaque étudiant et à son entreprise */
+function resolveConventionStudentFields(conv, u) {
+  u = u || etuOrEmpty();
+  const st = conventionPartyStudent(conv);
+  const ent = conventionPartyEntreprise(conv);
+  const canUseStudentProfile = u && typeof conventionBelongsToStudent === 'function'
+    ? conventionBelongsToStudent(conv, u)
+    : (state.role === 'etudiant');
+
+  function pickDb(stVal, convVal, userVal, fallback) {
+    const v = String(convVal || stVal || '').trim();
+    if (v) return v;
+    if (canUseStudentProfile && String(userVal || '').trim()) return String(userVal).trim();
+    return fallback;
+  }
+
+  let entrepriseSecteur = String(conv.entrepriseSecteur || ent.secteur || '').trim();
+  let entrepriseWilaya = String(conv.entrepriseWilaya || ent.wilaya || '').trim();
+  if ((!entrepriseSecteur || !entrepriseWilaya) && typeof companies !== 'undefined') {
+    const entId = conv.entrepriseId ? Number(conv.entrepriseId) : null;
+    const company = entId
+      ? companies.find(function(c) { return Number(c.id) === entId; })
+      : companies.find(function(c) { return c.name === conv.company; });
+    if (company) {
+      if (!entrepriseSecteur) entrepriseSecteur = company.sector || '';
+      if (!entrepriseWilaya) entrepriseWilaya = company.wilaya || '';
+    }
+  }
+
+  if (conv.fromDb) {
+    return {
+      etudiantNom: conv.etudiant || st.name || (canUseStudentProfile ? u.name : '') || '—',
+      specialite: pickDb(st.specialty, conv.studentSpecialty, u.specialty, '—'),
+      matricule: pickDb(st.matricule, conv.studentMatricule, u.matricule, '—'),
+      emailEtu: pickDb(st.email, conv.studentEmail, u.email, '—'),
+      universiteNom: pickDb(st.university, conv.studentUniversity, u.university, 'Université Abderrahmane Mira — Béjaïa'),
+      faculteLabel: pickDb(st.faculte, conv.faculte, u.faculte, 'Faculté SHS'),
+      deptLabel: pickDb(st.departement, conv.departement, u.departement || u.dept, 'Département SIC'),
+      theme: String(conv.theme || st.theme || (canUseStudentProfile ? u.theme : '') || '').trim() || '—',
+      periode: String(conv.periode || st.duree || '').trim() || '—',
+      company: String(conv.company || ent.nom || '').trim() || '—',
+      entrepriseSecteur,
+      entrepriseWilaya,
+    };
+  }
+
+  return {
+    etudiantNom: u.name || '—',
+    specialite: String(u.specialty || '').trim() || '—',
+    matricule: String(u.matricule || '').trim() || '—',
+    emailEtu: String(u.email || '').trim() || '—',
+    universiteNom: String(u.university || '').trim() || 'Université Abderrahmane Mira — Béjaïa',
+    faculteLabel: String(u.faculte || '').trim() || 'Faculté SHS',
+    deptLabel: String(u.departement || u.dept || '').trim() || 'Département SIC',
+    theme: String(conv.theme || u.theme || '').trim() || '—',
+    periode: String(conv.periode || '').trim() || '—',
+    company: String(conv.company || '').trim() || '—',
+    entrepriseSecteur,
+    entrepriseWilaya,
+  };
+}
+
+function resolveEncadrantUniversitaire(conv, u) {
+  const st = conventionPartyStudent(conv);
+  const canUseStudentProfile = u && typeof conventionBelongsToStudent === 'function'
+    ? conventionBelongsToStudent(conv, u)
+    : (state.role === 'etudiant');
+  if (conv.fromDb) {
+    const v = conv.studentEncadrant || st.encadrant || (canUseStudentProfile && u.encadrant) || '';
+    return String(v).trim() || '—';
+  }
+  return String((u && u.encadrant) || '').trim() || '—';
+}
+
+function resolveEncadrantEntreprise(conv) {
+  const ent = conventionPartyEntreprise(conv);
+  let v = conv.encadrant_entreprise || ent.encadrant || conv.encadrant || '';
+  v = String(v).trim();
+  if (v && v !== '—') return v;
+  if (typeof demandes !== 'undefined') {
+    const d = demandes.find(function(x) {
+      if (x.status !== 'accepted') return false;
+      if (conv.entrepriseId && x.entrepriseId) return Number(x.entrepriseId) === Number(conv.entrepriseId);
+      return x.company === conv.company;
+    });
+    if (d && d.encadrant && String(d.encadrant).trim() && d.encadrant !== '—') {
+      return String(d.encadrant).trim();
+    }
+  }
+  return '—';
+}
+
+/** Binôme / quadrinôme : snapshot convention, sinon profil étudiant connecté */
+function resolveConventionStudentGroup(conv, u) {
+  u = u || etuOrEmpty();
+  const canUseStudentProfile = u && typeof conventionBelongsToStudent === 'function'
+    ? conventionBelongsToStudent(conv, u)
+    : (state.role === 'etudiant');
+  if (conv.fromDb) {
+    const fromSnapshot = normalizeStudentGroup({
+      groupType: conv.studentGroupType || (conv.studentBinome ? 'binome' : 'solo'),
+      groupMembers: conv.studentGroupMembers || (conv.studentBinome ? [conv.studentBinome] : []),
+      binome: conv.studentBinome,
+    });
+    if (fromSnapshot.members.length) return fromSnapshot;
+    if (canUseStudentProfile) return normalizeStudentGroup(u);
+    return fromSnapshot;
+  }
+  return normalizeStudentGroup(u);
+}
+
 /** HTML identique à l'aperçu convention (aperçu + PDF) */
 function buildConventionPdfHtml(convId, forPdf) {
   const u = etuOrEmpty();
@@ -13,36 +132,25 @@ function buildConventionPdfHtml(convId, forPdf) {
   }
   convId = conv.id;
   const signedCount = [conv.signed_entreprise, conv.signed_univ].filter(Boolean).length;
-
-  const etudiantNom = conv.fromDb ? conv.etudiant : u.name;
-  const studentGroup = normalizeStudentGroup(conv.fromDb ? {
-    groupType: conv.studentGroupType || (conv.studentBinome ? 'binome' : 'solo'),
-    groupMembers: conv.studentGroupMembers || (conv.studentBinome ? [conv.studentBinome] : []),
-    binome: conv.studentBinome,
-  } : u);
+  const f = resolveConventionStudentFields(conv, u);
+  const studentGroup = resolveConventionStudentGroup(conv, u);
   const groupMembersHtml = studentGroup.members.map((m) =>
     `<div class="pdf-field"><label>Coéquipier :</label><div class="val">${m.name.toUpperCase()}${m.matricule ? ' · ' + m.matricule : ''}</div></div>`
   ).join('');
-  const specialite = conv.fromDb ? (conv.studentSpecialty || '—') : (u.specialty || '—');
-  const matricule = conv.fromDb ? (conv.studentMatricule || '—') : (u.matricule || '—');
-  const emailEtu = conv.fromDb ? (conv.studentEmail || '—') : (u.email || '—');
-  const universiteNom = conv.fromDb ? (conv.studentUniversity || 'Université Abderrahmane Mira — Béjaïa') : (u.university || 'Université Abderrahmane Mira — Béjaïa');
-  const encadrantEnt = conv.encadrant_entreprise || '—';
-  const encadrantUniv = conv.fromDb ? (conv.studentEncadrant || '—') : (u.encadrant || '—');
+  const encadrantEnt = resolveEncadrantEntreprise(conv);
+  const encadrantUniv = resolveEncadrantUniversitaire(conv, u);
   const docRef = conv.reference || ('SF-2026-0' + (conv.id + 46));
-  const faculteLabel = conv.faculte || 'Faculté SHS';
-  const deptLabel = conv.departement || 'Département SIC';
   const entLegalBlock = `
-        <div class="pdf-field"><label>Entreprise d'accueil :</label><div class="val">${conv.company}</div></div>
-        ${conv.entrepriseSecteur ? `<div class="pdf-field"><label>Secteur d'activité :</label><div class="val">${conv.entrepriseSecteur}</div></div>` : ''}
-        ${conv.entrepriseWilaya ? `<div class="pdf-field"><label>Wilaya :</label><div class="val">${conv.entrepriseWilaya}</div></div>` : ''}
+        <div class="pdf-field"><label>Entreprise d'accueil :</label><div class="val">${f.company}</div></div>
+        ${f.entrepriseSecteur ? `<div class="pdf-field"><label>Secteur d'activité :</label><div class="val">${f.entrepriseSecteur}</div></div>` : ''}
+        ${f.entrepriseWilaya ? `<div class="pdf-field"><label>Wilaya :</label><div class="val">${f.entrepriseWilaya}</div></div>` : ''}
         <div class="pdf-field"><label>Encadrant stage :</label><div class="val">${encadrantEnt}</div></div>`;
 
   return `
     <div class="pdf-preview">
       <div class="pdf-header">
         <div class="uni-name">République Algérienne Démocratique et Populaire<br>Ministère de l'Enseignement Supérieur et de la Recherche Scientifique</div>
-        <div style="margin-top:8px;font-size:11px;color:#555">${universiteNom} · ${faculteLabel} · ${deptLabel}</div>
+        <div style="margin-top:8px;font-size:11px;color:#555">${f.universiteNom} · ${f.faculteLabel} · ${f.deptLabel}</div>
         <div class="doc-title">CONVENTION DE STAGE DE FIN D'ÉTUDES (PFE)</div>
         <div style="font-size:10px;color:#777;margin-top:4px">Établie conformément au <strong>Décret exécutif n° 13-306 du 16 septembre 2013</strong> fixant les conditions et modalités d'organisation des stages pratiques en milieu professionnel au profit des étudiants de l'enseignement supérieur</div>
         <div class="doc-ref">Réf. : <strong>${docRef}</strong> · Année universitaire 2025-2026 · Généré le ${new Date().toLocaleDateString('fr-DZ')}</div>
@@ -50,26 +158,26 @@ function buildConventionPdfHtml(convId, forPdf) {
 
       <div class="pdf-section">
         <h4>Article 1 — Les parties contractantes <span style="font-weight:400;font-size:10px">(Art. 4 du Décret 13-306)</span></h4>
-        <div class="pdf-field"><label>Établissement :</label><div class="val">${universiteNom}</div></div>
-        <div class="pdf-field"><label>Faculté / Département :</label><div class="val">${faculteLabel} — ${deptLabel}</div></div>
-        <div class="pdf-field"><label>Représenté par :</label><div class="val">Pr. Soualmia Abderrahmane — Doyen ${faculteLabel}</div></div>
+        <div class="pdf-field"><label>Établissement :</label><div class="val">${f.universiteNom}</div></div>
+        <div class="pdf-field"><label>Faculté / Département :</label><div class="val">${f.faculteLabel} — ${f.deptLabel}</div></div>
+        <div class="pdf-field"><label>Représenté par :</label><div class="val">Pr. Soualmia Abderrahmane — Doyen ${f.faculteLabel}</div></div>
         ${entLegalBlock}
       </div>
 
       <div class="pdf-section">
         <h4>Article 2 — Stagiaire(s) <span style="font-weight:400;font-size:10px">(Art. 3 du Décret 13-306)</span></h4>
-        <div class="pdf-field"><label>Nom et prénom :</label><div class="val">${etudiantNom.toUpperCase()}</div></div>
+        <div class="pdf-field"><label>Nom et prénom :</label><div class="val">${String(f.etudiantNom || '').toUpperCase()}</div></div>
         ${studentGroup.groupType !== 'solo' ? `<div class="pdf-field"><label>Modalité PFE :</label><div class="val">${groupTypeLabel(studentGroup.groupType)}</div></div>` : ''}
         ${groupMembersHtml}
-        <div class="pdf-field"><label>Niveau / Spécialité :</label><div class="val">${specialite}</div></div>
-        <div class="pdf-field"><label>N° matricule :</label><div class="val">${matricule}</div></div>
-        <div class="pdf-field"><label>Email universitaire :</label><div class="val">${emailEtu}</div></div>
+        <div class="pdf-field"><label>Niveau / Spécialité :</label><div class="val">${f.specialite}</div></div>
+        <div class="pdf-field"><label>N° matricule :</label><div class="val">${f.matricule}</div></div>
+        <div class="pdf-field"><label>Email universitaire :</label><div class="val">${f.emailEtu}</div></div>
       </div>
 
       <div class="pdf-section">
         <h4>Article 3 — Objet et durée du stage <span style="font-weight:400;font-size:10px">(Art. 5 et 6 du Décret 13-306)</span></h4>
-        <div class="pdf-field"><label>Thème du PFE :</label><div class="val">${conv.theme}</div></div>
-        <div class="pdf-field"><label>Période :</label><div class="val">${conv.periode}</div></div>
+        <div class="pdf-field"><label>Thème du PFE :</label><div class="val">${f.theme}</div></div>
+        <div class="pdf-field"><label>Période :</label><div class="val">${f.periode}</div></div>
         <div class="pdf-field"><label>Encadrant entreprise :</label><div class="val">${encadrantEnt}</div></div>
         <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">${encadrantUniv}</div></div>
         <p style="font-size:11px;color:#555;margin-top:6px;line-height:1.6">Conformément à l'article 5 du Décret exécutif n° 13-306, la durée du stage ne peut excéder six (6) mois par année universitaire.</p>
@@ -103,12 +211,12 @@ function buildConventionPdfHtml(convId, forPdf) {
       <div class="pdf-sign-row" id="signRowPDF">
         <div class="sign-box-pdf">
           <div class="role-lbl">L'Entreprise</div>
-          <div class="sign-name">${conv.company}</div>
+          <div class="sign-name">${f.company}</div>
           ${signBoxContent('entreprise', conv, forPdf)}
         </div>
         <div class="sign-box-pdf">
           <div class="role-lbl">L'Université — Doyenne (Chef de doyennat)</div>
-          <div class="sign-name">Pr. Soualmia Abderrahmane — Chef de doyennat · ${conv.faculte || 'Faculté SHS'}</div>
+          <div class="sign-name">Pr. Soualmia Abderrahmane — Chef de doyennat · ${f.faculteLabel}</div>
           ${signBoxContent('universite', conv, forPdf)}
         </div>
       </div>
@@ -173,4 +281,3 @@ async function openConventionById(convId) {
   }
   openConvention(convId);
 }
-

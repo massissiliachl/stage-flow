@@ -161,7 +161,7 @@ async function buildPartiesSnapshotFull(client, demand, encadrantEnt) {
       specialty: s.specialty || sd.specialty || '',
       university: sd.university || 'Université Abderrahmane Mira — Béjaïa',
       theme: demand.theme || sd.theme || s.theme || '',
-      faculte: s.faculte || (demand.faculte && !String(demand.faculte).includes('Université') ? demand.faculte : '') || 'Faculté SHS',
+      faculte: s.faculte || sd.faculte || (demand.faculte && !String(demand.faculte).includes('Université') ? demand.faculte : '') || '',
       departement: s.departement || demand.departement || sd.dept || '',
       promotion: s.promotion || sd.promo || '',
       encadrant: s.encadrant || sd.encadrant || '',

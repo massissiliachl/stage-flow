@@ -56,6 +56,8 @@ function mapDemandeRow(row) {
     studentName: row.student_name || '—',
     studentLabel: row.student_name || '—',
     duree: row.duree || '',
+    faculte: row.faculte || '',
+    departement: row.departement || '',
     fromDb: true,
   };
 }
@@ -161,6 +163,29 @@ demandesRouter.post('/', async (req, res) => {
 
     const dureeTrim = (duree || '').trim() || '2 mois';
 
+    let faculteVal = (faculte || '').trim();
+    let deptVal = (departement || '').trim();
+    const sid = studentId ? parseInt(studentId, 10) : null;
+    if (sid && !Number.isNaN(sid) && (!faculteVal || !deptVal)) {
+      const meta = await pool.query(
+        `SELECT s.faculte, s.departement, s.specialty, u.student_data
+         FROM users u
+         LEFT JOIN students s ON s.user_id = u.id
+         WHERE u.id = $1 AND u.role = 'etudiant'
+         LIMIT 1`,
+        [sid]
+      );
+      if (meta.rows.length) {
+        const sd = meta.rows[0].student_data && typeof meta.rows[0].student_data === 'object'
+          ? meta.rows[0].student_data
+          : {};
+        if (!faculteVal) faculteVal = (meta.rows[0].faculte || sd.faculte || '').trim();
+        if (!deptVal) {
+          deptVal = (meta.rows[0].departement || sd.departement || sd.dept || meta.rows[0].specialty || sd.specialty || '').trim();
+        }
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO stage_demands (
          student_id, student_name, entreprise_id, entreprise_nom,
@@ -168,14 +193,14 @@ demandesRouter.post('/', async (req, res) => {
        ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE, $7, $8, $9)
        RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, faculte, departement, duree`,
       [
-        studentId || null,
+        sid || null,
         nameTrim,
         entId,
         companyName,
         themeTrim,
         null,
-        faculte || null,
-        departement || null,
+        faculteVal || null,
+        deptVal || null,
         dureeTrim,
       ]
     );
@@ -390,7 +415,7 @@ demandesRouter.get('/', async (req, res) => {
   try {
     const pool = getPool();
     const result = await pool.query(
-      `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree
+      `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree, faculte, departement
        FROM stage_demands
        WHERE student_name = $1
        ORDER BY demand_date DESC NULLS LAST, id DESC`,

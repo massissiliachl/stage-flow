@@ -309,8 +309,8 @@ async function submitDemande(companyName){
         theme,
         message,
         duree,
-        faculte: u.faculte || 'Faculté SHS',
-        departement: u.dept || u.specialty || '',
+        faculte: (u.faculte || '').trim(),
+        departement: (u.departement || u.dept || u.specialty || '').trim(),
       }),
     });
     demandes.push(data.demande);
