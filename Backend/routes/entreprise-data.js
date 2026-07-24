@@ -4,6 +4,7 @@ const { mapConventionRow } = require('../lib/convention-map');
 const { createOrUpdateConventionForDemand } = require('../lib/convention-service');
 const { mapReportRow } = require('./stage-reports');
 const { mapAttestationRow } = require('./stage-attestations');
+const { parseEntrepriseLogoUrl } = require('../lib/entreprise-logo');
 
 const router = express.Router();
 
@@ -44,6 +45,7 @@ function mapProfile(row) {
       nis: row.nis || '',
       identifiant: row.identifiant || row.login_id || '',
       encadrant: row.encadrant_ent || logo.encadrant_stage || '',
+      logoUrl: parseEntrepriseLogoUrl(row.entreprise_logo),
     },
     user: {
       id: row.user_id,

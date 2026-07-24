@@ -3,6 +3,7 @@ const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
+const { sanitizeEntrepriseLogoImage } = require('../lib/entreprise-logo');
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ function normalizeNrc(value) {
 
 function toFrontendUser(row) {
   const logo = row.entreprise_logo || {};
+  const logoUrl = logo.imageDataUrl || logo.pngUrl || '';
   return {
     id: row.user_id,
     entrepriseId: row.entreprise_id,
@@ -36,6 +38,7 @@ function toFrontendUser(row) {
     identifiant: row.login_id,
     avatar: row.avatar || (row.entreprise_nom || '').slice(0, 2).toUpperCase(),
     encadrant_stage: row.encadrant_ent || logo.encadrant_stage || '',
+    logoUrl,
   };
 }
 
@@ -62,6 +65,7 @@ router.post('/register', async (req, res) => {
     nif,
     nrc,
     nis,
+    logoImage,
   } = req.body || {};
 
   const nomTrim = (nom || '').trim();
@@ -133,8 +137,16 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: detail, identifiant });
     }
 
+    const logoImageSafe = sanitizeEntrepriseLogoImage(logoImage);
+    if (logoImage && !logoImageSafe) {
+      return res.status(400).json({
+        error: 'Logo invalide : utilisez une image PNG, JPEG ou WebP (max 512 Ko)',
+      });
+    }
+
     const logo = {};
     if (encadrant) logo.encadrant_stage = encadrant.trim();
+    if (logoImageSafe) logo.imageDataUrl = logoImageSafe;
 
     const entrepriseResult = await client.query(
       `INSERT INTO entreprises (

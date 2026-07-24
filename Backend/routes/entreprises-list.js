@@ -1,6 +1,7 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
 const { mapConventionRow, parseSignaturesJson } = require('../lib/convention-map');
+const { parseEntrepriseLogoUrl } = require('../lib/entreprise-logo');
 const {
   computeDocumentHash,
   computeFinalIntegrityHash,
@@ -34,6 +35,7 @@ function mapEntrepriseListRow(row) {
     rating: row.note != null ? Number(row.note) : 0,
     tags: tags.length ? tags : [row.secteur || 'Stage'].filter(Boolean),
     identifiant: row.identifiant || '',
+    logoUrl: parseEntrepriseLogoUrl(row.logo),
     fromDb: true,
   };
 }
@@ -193,7 +195,7 @@ entreprisesRouter.get('/', async (req, res) => {
   try {
     const pool = getPool();
     const result = await pool.query(
-      `SELECT id, nom, domaine, secteur, wilaya, offres, note, tags, identifiant
+      `SELECT id, nom, domaine, secteur, wilaya, offres, note, tags, identifiant, logo
        FROM entreprises
        WHERE is_active IS NOT FALSE
        ORDER BY nom ASC`

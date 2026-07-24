@@ -143,19 +143,20 @@ function starRatingHTML(companyId, currentValue, interactive){
   return `<div class="star-rating">${stars}${label}</div>`;
 }
 
-function rateCompany(companyId, value){
-  const studentName = etu().name;
-  persistCompanyRating(companyId, studentName, value).then(()=>{
-    showToast(`⭐ Merci ! Vous avez noté cette entreprise ${value}/5`);
-    const widget = document.getElementById('companyRatingWidget');
-    if(widget) widget.innerHTML = starRatingHTML(companyId, value, true);
-    refreshCurrentView();
-  });
+function companyLogoMarkup(companyName, logoUrl, sizePx) {
+  const sz = sizePx || 52;
+  const url = (logoUrl || '').trim();
+  if (url) {
+    return '<div class="company-logo-img"><img src="' + url.replace(/"/g, '&quot;') + '" alt="" style="width:' + sz + 'px;height:' + sz + 'px;object-fit:contain;border-radius:8px;background:#fff"></div>';
+  }
+  const logo = companyLogos[companyName];
+  if (logo && logo.svg) return '<div class="company-logo-img">' + logo.svg + '</div>';
+  const initials = String(companyName || 'EN').slice(0, 2).toUpperCase();
+  return '<div class="company-logo-img fallback" style="background:var(--navy);color:var(--cyan);width:' + sz + 'px;height:' + sz + 'px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:700">' + initials + '</div>';
 }
 
 function companyCardHTML(c){
-  const logo = companyLogos[c.name];
-  const logoHTML = logo ? `<div class="company-logo-img">${logo.svg}</div>` : `<div class="company-logo-img fallback" style="background:var(--navy);color:var(--cyan)">${c.name.slice(0,2).toUpperCase()}</div>`;
+  const logoHTML = companyLogoMarkup(c.name, c.logoUrl, 52);
   const safeName = c.name.replace(/'/g, "\\'");
   const ratingInfo = c.studentRatingsCount
     ? `★ ${c.rating} <span class="text-muted">(${c.studentRatingsCount} avis étudiant${c.studentRatingsCount>1?'s':''})</span>`
@@ -171,6 +172,16 @@ function companyCardHTML(c){
     </div>
     <div class="tags">${c.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
   </div>`;
+}
+
+function rateCompany(companyId, value){
+  const studentName = etu().name;
+  persistCompanyRating(companyId, studentName, value).then(()=>{
+    showToast(`⭐ Merci ! Vous avez noté cette entreprise ${value}/5`);
+    const widget = document.getElementById('companyRatingWidget');
+    if(widget) widget.innerHTML = starRatingHTML(companyId, value, true);
+    refreshCurrentView();
+  });
 }
 
 function filterCompanies(){

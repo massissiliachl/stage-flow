@@ -571,9 +571,11 @@ ${(() => {
   const nom = u.company || 'Mon entreprise';
   const secteur = u.sector || '';
   const wilaya = u.wilaya || '';
-  const logoHtml = (companyLogos[nom] && companyLogos[nom].svg)
-    ? companyLogos[nom].svg
-    : '<div style="width:64px;height:64px;border-radius:12px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">' + nom.slice(0,2).toUpperCase() + '</div>';
+  const logoHtml = typeof companyLogoMarkup === 'function'
+    ? companyLogoMarkup(nom, u.logoUrl, 64)
+    : ((companyLogos[nom] && companyLogos[nom].svg)
+      ? companyLogos[nom].svg
+      : '<div style="width:64px;height:64px;border-radius:12px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">' + nom.slice(0,2).toUpperCase() + '</div>');
   const esc = (v) => String(v || '').replace(/"/g, '&quot;');
   return `
 <div class="page-header">

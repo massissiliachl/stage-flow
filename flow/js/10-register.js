@@ -2,6 +2,51 @@
 // MODAL D'INSCRIPTION
 // ──────────────────────────────────
 let currentRegTab = 'entreprise';
+let regEntLogoDataUrl = '';
+
+function clearEntrepriseRegLogo() {
+  regEntLogoDataUrl = '';
+  const input = document.getElementById('reg_ent_logo_file');
+  if (input) input.value = '';
+  updateEntrepriseRegLogoPreview();
+}
+
+function onEntrepriseRegLogoChange(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.type)) {
+    showToast('⚠️ Format accepté : PNG, JPEG ou WebP');
+    input.value = '';
+    return;
+  }
+  if (file.size > 512 * 1024) {
+    showToast('⚠️ Logo trop volumineux (max 512 Ko)');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function() {
+    regEntLogoDataUrl = String(reader.result || '');
+    updateEntrepriseRegLogoPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateEntrepriseRegLogoPreview() {
+  const wrap = document.getElementById('reg_ent_logo_preview');
+  const img = document.getElementById('reg_ent_logo_img');
+  const placeholder = document.getElementById('reg_ent_logo_placeholder');
+  if (!wrap) return;
+  if (regEntLogoDataUrl) {
+    wrap.style.display = 'flex';
+    if (img) img.src = regEntLogoDataUrl;
+    if (placeholder) placeholder.style.display = 'none';
+  } else {
+    wrap.style.display = 'none';
+    if (img) img.removeAttribute('src');
+    if (placeholder) placeholder.style.display = 'block';
+  }
+}
 
 const STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistration === 'function'
   ? getUniversitiesForStudentRegistration()
@@ -72,6 +117,7 @@ function switchRegTab(type, el){
 }
 
 function renderRegForm(type){
+  regEntLogoDataUrl = '';
   const box = document.getElementById('regModalContent');
   box.innerHTML = `
       <div style="padding:4px 0 16px">
@@ -84,6 +130,20 @@ function renderRegForm(type){
           <div class="form-group"><label class="form-label">N° Registre de Commerce (RC) *</label><input id="reg_nrc" class="form-input" placeholder="Ex: 06/00-1234567B12"></div>
         </div>
         <div class="form-group"><label class="form-label">NIS (Identification Statistique — optionnel)</label><input id="reg_nis" class="form-input" placeholder="Ex: 12345678901234"></div>
+
+        <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🖼 Logo de l'entreprise</div>
+        <div id="reg_ent_logo_zone" style="border:2px dashed var(--border);border-radius:var(--r2);padding:18px 16px;text-align:center;background:var(--bg2);margin-bottom:14px">
+          <div id="reg_ent_logo_placeholder" class="text-xs text-muted" style="margin-bottom:10px">Espace réservé au logo (PNG recommandé)</div>
+          <div id="reg_ent_logo_preview" style="display:none;flex-direction:column;align-items:center;gap:10px;margin-bottom:12px">
+            <img id="reg_ent_logo_img" alt="Aperçu du logo" style="max-height:88px;max-width:240px;object-fit:contain;background:#fff;border-radius:8px;padding:6px">
+            <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="clearEntrepriseRegLogo()">Retirer l'image</button>
+          </div>
+          <label class="btn btn-ghost" style="cursor:pointer;margin:0;display:inline-flex;align-items:center;gap:6px">
+            📎 Ajouter une image PNG
+            <input id="reg_ent_logo_file" type="file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onEntrepriseRegLogoChange(this)">
+          </label>
+          <p class="text-xs text-muted" style="margin-top:10px;margin-bottom:0">PNG de préférence · JPEG ou WebP acceptés · max 512 Ko · visible par les étudiants</p>
+        </div>
 
         <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">📍 Coordonnées</div>
         <div class="form-row">
@@ -116,6 +176,7 @@ function renderRegForm(type){
           <button class="btn btn-cyan" onclick="submitRegister('entreprise')">✨ Créer le compte entreprise</button>
         </div>
       </div>`;
+  updateEntrepriseRegLogoPreview();
 }
 
 function toggleBinomeFields(checked){
@@ -331,7 +392,10 @@ async function submitRegisterEntreprise(){
   try {
     const data = await apiJson('/api/auth/entreprise/register', {
       method: 'POST',
-      body: JSON.stringify({ nom, secteur, wilaya, adresse, phone, email, password: pw, nif, nrc, nis }),
+      body: JSON.stringify({
+        nom, secteur, wilaya, adresse, phone, email, password: pw, nif, nrc, nis,
+        logoImage: regEntLogoDataUrl || undefined,
+      }),
     });
 
     if (data.user && !data.requiresEmailVerification) {
