@@ -754,7 +754,7 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
           <td>${statusPill(c.status)}</td>
           <td style="display:flex;gap:6px">
             <button class="btn btn-ghost btn-sm" onclick="openConventionById(${c.id})">Voir</button>
-            ${c.status!=='archived'?`<button class="btn btn-navy btn-sm" onclick="archiverConvention('${c.etudiant}')">Archiver</button>`:'<span class="text-xs text-muted">Archivé ✅</span>'}
+            ${c.status!=='archived'?`<button class="btn btn-navy btn-sm" onclick="archiverConventionById(${c.id})">Archiver</button>`:'<span class="text-xs text-muted">Archivé ✅</span>'}
           </td>
         </tr>`).join('')}
       </tbody>

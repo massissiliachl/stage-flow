@@ -633,6 +633,55 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/conventions/:conventionId/archive
+ * Archivage GED par l'université (doyenne / faculté)
+ */
+conventionsRouter.patch('/:conventionId/archive', async (req, res) => {
+  const convId = parseInt(req.params.conventionId, 10);
+  if (!convId || Number.isNaN(convId)) {
+    return res.status(400).json({ error: 'Identifiant convention invalide' });
+  }
+
+  try {
+    const pool = getPool();
+    const existing = await pool.query('SELECT * FROM conventions WHERE id = $1', [convId]);
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: 'Convention introuvable' });
+    }
+
+    const row = existing.rows[0];
+    if (row.status === 'archived') {
+      return res.json({
+        message: 'Convention déjà archivée',
+        convention: mapConventionRow(row),
+      });
+    }
+
+    let upd;
+    try {
+      upd = await pool.query(
+        `UPDATE conventions SET status = 'archived', updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [convId]
+      );
+    } catch (err) {
+      console.warn('Convention archive (schéma étendu) — repli:', err.message);
+      upd = await pool.query(
+        `UPDATE conventions SET status = 'archived' WHERE id = $1 RETURNING *`,
+        [convId]
+      );
+    }
+
+    res.json({
+      message: 'Convention archivée',
+      convention: mapConventionRow(upd.rows[0]),
+    });
+  } catch (err) {
+    console.error('Convention archive error:', err.message);
+    res.status(500).json({ error: 'Erreur lors de l\'archivage de la convention' });
+  }
+});
+
 conventionsRouter.get('/', async (req, res) => {
   const studentName = (req.query.studentName || '').trim();
   const matricule = (req.query.matricule || '').trim();

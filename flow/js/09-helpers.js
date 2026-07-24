@@ -603,14 +603,47 @@ function validerConvention(n){
   openConventionById(conv.id);
 }
 
-function archiverConvention(n){
-  const conv = conventions.find(c=>c.etudiant===n);
-  if(conv){
-    conv.status = 'archived';
-    persistConventionState(conv.id);
+async function archiverConventionById(conventionId) {
+  const conv = conventions.find(function(c) { return Number(c.id) === Number(conventionId); });
+  if (!conv) {
+    showToast('⚠️ Convention introuvable');
+    return;
   }
-  showToast(`🗄️ Convention de ${n} archivée dans la GED — visible par toutes les parties`);
-  refreshCurrentView();
+  if (conv.status === 'archived') {
+    showToast('ℹ️ Cette convention est déjà archivée');
+    refreshCurrentView();
+    return;
+  }
+
+  try {
+    if (conv.fromDb && typeof apiJson === 'function') {
+      const data = await apiJson('/api/conventions/' + conv.id + '/archive', { method: 'PATCH' });
+      if (data.convention && typeof mergeConventionFromApi === 'function') {
+        mergeConventionFromApi(data.convention);
+      } else {
+        conv.status = 'archived';
+      }
+    } else {
+      conv.status = 'archived';
+    }
+    if (typeof persistConventionArchive === 'function') {
+      await persistConventionArchive(conv.id);
+    }
+    showToast('🗄️ Convention de ' + conv.etudiant + ' archivée — visible dans les archives');
+    refreshCurrentView();
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Archivage impossible'));
+  }
+}
+
+function archiverConvention(n){
+  const conv = conventions.find(function(c) { return c.etudiant === n; });
+  if (!conv && typeof studentNamesMatch === 'function') {
+    const match = conventions.find(function(c) { return studentNamesMatch(c.etudiant, n); });
+    if (match) return archiverConventionById(match.id);
+  }
+  if (conv) return archiverConventionById(conv.id);
+  showToast('⚠️ Convention introuvable');
 }
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // GÃ‰NÃ‰RATION PDF â€” helper partagÃ©

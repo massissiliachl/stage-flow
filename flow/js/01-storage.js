@@ -168,6 +168,24 @@ async function persistConventionState(conventionId){
   return null;
 }
 
+async function persistConventionArchive(conventionId) {
+  const conv = conventions.find(function(c) { return c.id === conventionId; });
+  if (!conv) return null;
+  conv.status = 'archived';
+  sharedData.conventionStates[conventionId] = {
+    ...(sharedData.conventionStates[conventionId] || {}),
+    signed_etudiant: !!conv.signed_etudiant,
+    signed_entreprise: !!conv.signed_entreprise,
+    signed_univ: !!conv.signed_univ,
+    status: 'archived',
+    signatures: conv.signatures || {},
+    documentHash: conv.documentHash || null,
+    finalIntegrityHash: conv.finalIntegrityHash || null,
+  };
+  await persistSharedData();
+  return conv;
+}
+
 // Sauvegarde l'état d'une demande (statut accepté/refusé)
 async function persistDemandeState(demandeId){
   const d = demandes.find(x=>x.id===demandeId);
