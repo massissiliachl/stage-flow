@@ -146,7 +146,6 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
     <div class="land-nav-links">
       <button id="langToggleBtn" class="lang-toggle-btn" onclick="toggleLang()">AR</button>
       <button id="i18n-nav-login" onclick="openLoginModal()">Connexion</button>
-      <button id="i18n-nav-register" style="background:var(--cyan);color:var(--navy);font-weight:600;border:none" onclick="openRegisterModal()">S'inscrire</button>
       <button id="i18n-nav-about" style="background:rgba(0,194,255,0.15);color:var(--cyan);border:1px solid rgba(0,194,255,0.3)" onclick="openAbout()">À propos</button>
     </div>
   </nav>
@@ -223,30 +222,6 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
   </div>
 </div>
 
-<div class="modal-overlay" id="registerRoleModal">
-  <div class="modal" style="max-width:480px">
-    <div class="modal-header">
-      <div class="modal-title" id="i18n-register-modal-title">Créer un compte</div>
-      <button class="modal-close" onclick="closeOverlay('registerRoleModal')">✕</button>
-    </div>
-    <p id="i18n-register-modal-sub" style="font-size:13px;color:var(--text2);margin:-8px 0 16px">Choisissez votre profil pour vous inscrire</p>
-    <div class="login-role-grid">
-      <div class="login-role-option rc-student" onclick="showRegister('etudiant')">
-        <div class="role-icon">🎓</div>
-        <div><h4 id="i18n-register-role-student">Étudiant</h4><p id="i18n-register-role-student-desc">Recherchez, postulez, signez en ligne</p></div>
-      </div>
-      <div class="login-role-option rc-company" onclick="showRegister('entreprise')">
-        <div class="role-icon">🏢</div>
-        <div><h4 id="i18n-register-role-company">Entreprise</h4><p id="i18n-register-role-company-desc">Gérez vos demandes de stage PFE</p></div>
-      </div>
-      <div class="login-role-option rc-univ" onclick="showRegister('universite')">
-        <div class="role-icon">🏛️</div>
-        <div><h4 id="i18n-register-role-univ">Université</h4><p id="i18n-register-role-univ-desc">Validez, archivez, suivez les conventions</p></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 const ROLE_PAGES = {
   etudiant: 'etudiant.html',
@@ -258,9 +233,8 @@ const state = { lang: 'fr' };
 const i18n = {
   fr: {
     // Landing
-    nav_login:'Connexion', nav_register:"S'inscrire", nav_about:'À propos',
+    nav_login:'Connexion', nav_about:'À propos',
     login_modal_title:'Se connecter', login_modal_sub:'Choisissez votre espace de connexion',
-    register_modal_title:'Créer un compte', register_modal_sub:'Choisissez votre profil pour vous inscrire',
     hero_badge:'🇩🇿 Plateforme 100% algérienne',
     hero_title1:'La nouvelle ère', hero_title2:'de la gestion', hero_title3:'de stages',
     hero_desc:"StageFlow connecte étudiants, entreprises et universités dans un processus entièrement dématérialisé — de la recherche à la signature électronique et l'archivage.",
@@ -319,9 +293,8 @@ const i18n = {
     lang_btn:'AR',
   },
   ar: {
-    nav_login:'تسجيل الدخول', nav_register:'إنشاء حساب', nav_about:'حول المنصة',
+    nav_login:'تسجيل الدخول', nav_about:'حول المنصة',
     login_modal_title:'تسجيل الدخول', login_modal_sub:'اختر مساحة الدخول الخاصة بك',
-    register_modal_title:'إنشاء حساب', register_modal_sub:'اختر نوع حسابك للتسجيل',
     hero_badge:'🇩🇿 منصة جزائرية 100%',
     hero_title1:'العصر الجديد', hero_title2:'لإدارة', hero_title3:'التربصات',
     hero_desc:'StageFlow : بسّط مسار تربصك.',
@@ -394,7 +367,7 @@ function toggleLang(){
 
 function renderLandingTexts(){
   const map = {
-    'i18n-nav-login': 'nav_login', 'i18n-nav-register': 'nav_register', 'i18n-nav-about': 'nav_about',
+    'i18n-nav-login': 'nav_login', 'i18n-nav-about': 'nav_about',
     'i18n-hero-badge': 'hero_badge', 'i18n-hero-title1': 'hero_title1', 'i18n-hero-title2': 'hero_title2', 'i18n-hero-title3': 'hero_title3',
     'i18n-hero-desc': 'hero_desc',
     'i18n-role-label': 'role_select_label',
@@ -406,10 +379,6 @@ function renderLandingTexts(){
     'i18n-login-role-student': 'role_student', 'i18n-login-role-student-desc': 'role_student_desc',
     'i18n-login-role-company': 'role_company', 'i18n-login-role-company-desc': 'role_company_desc',
     'i18n-login-role-univ': 'role_univ', 'i18n-login-role-univ-desc': 'role_univ_desc',
-    'i18n-register-modal-title': 'register_modal_title', 'i18n-register-modal-sub': 'register_modal_sub',
-    'i18n-register-role-student': 'role_student', 'i18n-register-role-student-desc': 'role_student_desc',
-    'i18n-register-role-company': 'role_company', 'i18n-register-role-company-desc': 'role_company_desc',
-    'i18n-register-role-univ': 'role_univ', 'i18n-register-role-univ-desc': 'role_univ_desc',
     'i18n-about-title': 'about_title', 'i18n-about-text1': 'about_text1', 'i18n-about-text2': 'about_text2', 'i18n-about-close': 'close'
   };
   Object.entries(map).forEach(([id, key]) => {
@@ -452,7 +421,6 @@ function showLogin(role){
 }
 
 function showRegister(role){
-  closeOverlay('registerRoleModal');
   const page = ROLE_PAGES[role];
   if (!page) return;
   window.location.href = page + '?register=1';
@@ -460,10 +428,6 @@ function showRegister(role){
 
 function openLoginModal(){
   document.getElementById('loginModal').classList.add('open');
-}
-
-function openRegisterModal(){
-  document.getElementById('registerRoleModal').classList.add('open');
 }
 
 function openAbout(){
