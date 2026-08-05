@@ -13,6 +13,11 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 .verify-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;color:var(--navy)}
 .verify-msg{color:var(--text2);font-size:15px;line-height:1.6;margin-bottom:20px}
 .verify-actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.verify-qr{margin-top:28px;padding-top:22px;border-top:1px solid var(--border)}
+.verify-qr-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.verify-qr-hint{font-size:12px;color:var(--text3);margin-bottom:14px;line-height:1.5}
+.verify-qr img{display:block;margin:0 auto;border-radius:12px;padding:10px;background:#fff;border:1px solid var(--border);box-shadow:0 4px 16px rgba(11,30,61,.08)}
+.verify-qr-link{display:inline-block;margin-top:12px;font-size:12px;color:var(--cyan2);font-weight:500;word-break:break-all}
 </style>
 </head>
 <body>
@@ -21,10 +26,28 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
   <h1 class="verify-title" id="verifyTitle">Vérification en cours…</h1>
   <p class="verify-msg" id="verifyMsg">Nous confirmons votre adresse email.</p>
   <div class="verify-actions" id="verifyActions" style="display:none"></div>
+
+  <div class="verify-qr" id="verifyPlatformQr">
+    <div class="verify-qr-title">📱 Accéder à StageFlow</div>
+    <p class="verify-qr-hint">Scannez ce QR code avec l’appareil photo de votre téléphone pour ouvrir la plateforme.</p>
+    <a id="verifyQrLink" href="https://stageflow-9775.onrender.com/" target="_blank" rel="noopener noreferrer">
+      <img id="verifyQrImg" src="assets/stageflow-site-qr.png" alt="QR code — scanner pour ouvrir StageFlow" width="180" height="180">
+    </a>
+    <a class="verify-qr-link" id="verifyQrUrl" href="https://stageflow-9775.onrender.com/">https://stageflow-9775.onrender.com/</a>
+  </div>
 </div>
+<script src="js/stageflow-qr-embedded.js"></script>
 <script src="js/02-data.js"></script>
 <script>
 (function verifyEmailEntry(){
+  var platformUrl = 'https://stageflow-9775.onrender.com/';
+  var qrSrc = typeof STAGEFLOW_QR_DATA_URL === 'string' ? STAGEFLOW_QR_DATA_URL : 'assets/stageflow-site-qr.png';
+  var link = document.getElementById('verifyQrLink');
+  var urlEl = document.getElementById('verifyQrUrl');
+  var img = document.getElementById('verifyQrImg');
+  if (link) link.href = platformUrl;
+  if (urlEl) { urlEl.href = platformUrl; urlEl.textContent = platformUrl; }
+  if (img) img.src = qrSrc;
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const icon = document.getElementById('verifyIcon');

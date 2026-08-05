@@ -169,10 +169,10 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
     </div>
   </div>
   <div class="stats-bar">
-    <div class="stat-item"><strong id="stat-num-students">1 240+</strong><span id="i18n-stat-students">ÉTUDIANTS INSCRITS</span></div>
-    <div class="stat-item"><strong id="stat-num-companies">380+</strong><span id="i18n-stat-companies">ENTREPRISES PARTENAIRES</span></div>
-    <div class="stat-item"><strong id="stat-num-univs">14</strong><span id="i18n-stat-univs">UNIVERSITÉS CONNECTÉES</span></div>
-    <div class="stat-item"><strong id="stat-num-delay">-87%</strong><span id="i18n-stat-delay">DÉLAIS ADMINISTRATIFS</span></div>
+    <div class="stat-item"><strong id="stat-num-students">—</strong><span id="i18n-stat-students">ÉTUDIANTS INSCRITS</span></div>
+    <div class="stat-item"><strong id="stat-num-companies">—</strong><span id="i18n-stat-companies">ENTREPRISES PARTENAIRES</span></div>
+    <div class="stat-item"><strong id="stat-num-univs">—</strong><span id="i18n-stat-univs">COMPTES UNIVERSITAIRES</span></div>
+    <div class="stat-item"><strong id="stat-num-delay">—</strong><span id="i18n-stat-delay">CONVENTIONS FINALISÉES</span></div>
     <div class="stat-item"><strong id="stat-num-paper">0</strong><span id="i18n-stat-paper">PAPIER REQUIS</span></div>
   </div>
 </div>
@@ -362,6 +362,34 @@ function renderLandingTexts(){
   });
 }
 
+const API_BASE = 'https://stage-flow-6rl5.onrender.com';
+
+function formatLandingStat(n) {
+  return Number(n || 0).toLocaleString('fr-FR');
+}
+
+function applyLandingStats(stats) {
+  const set = function(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  set('stat-num-students', formatLandingStat(stats.students));
+  set('stat-num-companies', formatLandingStat(stats.companies));
+  set('stat-num-univs', formatLandingStat(stats.universityAccounts));
+  set('stat-num-delay', formatLandingStat(stats.conventionsFinalized));
+  set('stat-num-paper', String(stats.paperRequired != null ? stats.paperRequired : 0));
+}
+
+async function loadPlatformStats() {
+  try {
+    const res = await fetch(API_BASE + '/api/stats/public', { headers: { Accept: 'application/json' } });
+    const data = await res.json();
+    if (res.ok) applyLandingStats(data);
+  } catch (e) {
+    console.warn('[StageFlow] Stats plateforme:', e.message);
+  }
+}
+
 function showLogin(role){
   if (role === 'etudiant') {
     window.location.href = 'etudiant.html';
@@ -393,6 +421,7 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
   document.documentElement.lang = saved;
   document.documentElement.dir = saved === 'ar' ? 'rtl' : 'ltr';
   renderLandingTexts();
+  loadPlatformStats();
   const btn = document.getElementById('langToggleBtn');
   if (btn) btn.textContent = t('lang_btn');
 })();

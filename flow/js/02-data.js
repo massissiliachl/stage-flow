@@ -846,26 +846,40 @@ function renderLandingTexts(){
   renderLandingStats();
 }
 
-// Calcule et affiche les vraies statistiques de la plateforme (pas de chiffres fictifs)
-function renderLandingStats(){
-  // Étudiants : compte de démo + comptes réellement inscrits en session
-  const totalStudents = students_bejaia.length + Object.keys(registeredAccounts.etudiant).length;
+// Calcule et affiche les statistiques réelles depuis l'API PostgreSQL
+async function renderLandingStats(){
+  const setNum = function(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  const fmt = function(n) { return Number(n || 0).toLocaleString('fr-FR'); };
 
-  // Entreprises : liste des partenaires (démo + inscrites en session)
-  const totalCompanies = companies.length;
+  try {
+    const data = await apiJson('/api/stats/public');
+    setNum('stat-num-students', fmt(data.students));
+    setNum('stat-num-companies', fmt(data.companies));
+    setNum('stat-num-univs', fmt(data.universityAccounts));
+    setNum('stat-num-delay', fmt(data.conventionsFinalized));
+    setNum('stat-num-paper', String(data.paperRequired != null ? data.paperRequired : 0));
+    return;
+  } catch (e) {
+    console.warn('[StageFlow] Stats API:', e.message);
+  }
 
-  // Universités / facultés / départements connectés (structure réelle)
-  const totalUnivAccounts = universityAccounts.length;
+  const totalStudents = Object.keys(registeredAccounts.etudiant).length;
+  const totalCompanies = typeof getRegisteredCompanies === 'function'
+    ? getRegisteredCompanies().length
+    : companies.filter(function(c) { return c.fromDb; }).length;
+  const totalUnivAccounts = typeof universityAccounts !== 'undefined' ? universityAccounts.length : 0;
+  const fromDbConv = conventions.filter(function(c) { return c.fromDb; });
+  const doneConv = fromDbConv.filter(function(c) {
+    return c.status === 'signed' || c.status === 'archived'
+      || (c.signed_entreprise && c.signed_univ);
+  }).length;
 
-  // Taux de dématérialisation des conventions : signées ou archivées / total
-  const totalConv = conventions.length;
-  const doneConv = conventions.filter(c=>c.status==='signed'||c.status==='archived').length;
-  const completionRate = totalConv ? Math.round(doneConv/totalConv*100) : 0;
-
-  const setNum = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = val; };
-  setNum('stat-num-students', totalStudents);
-  setNum('stat-num-companies', totalCompanies);
-  setNum('stat-num-univs', totalUnivAccounts);
-  setNum('stat-num-delay', completionRate + '%');
+  setNum('stat-num-students', fmt(totalStudents));
+  setNum('stat-num-companies', fmt(totalCompanies));
+  setNum('stat-num-univs', fmt(totalUnivAccounts));
+  setNum('stat-num-delay', fmt(doneConv));
   setNum('stat-num-paper', '0');
 }

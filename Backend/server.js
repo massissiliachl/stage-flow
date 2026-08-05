@@ -26,6 +26,7 @@ app.use('/api/demandes', demandesRouter);
 app.use('/api/conventions', conventionsRouter);
 app.use('/api/rapports', require('./routes/stage-reports').stageReportsRouter);
 app.use('/api/attestations', require('./routes/stage-attestations').stageAttestationsRouter);
+app.use('/api/stats', require('./routes/platform-stats'));
 
 app.get('/', (req, res) => {
   res.json({
