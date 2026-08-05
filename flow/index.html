@@ -157,17 +157,17 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
       <p id="i18n-hero-desc" style="text-align:center;max-width:560px;margin:0 auto">StageFlow connecte étudiants, entreprises et universités dans un processus entièrement dématérialisé — de la recherche à la signature électronique et l'archivage.</p>
     </div>
     <div class="hero-cards">
-      <div id="i18n-role-label" style="color:rgba(255,255,255,0.45);font-size:11px;letter-spacing:.8px;margin-bottom:4px;font-weight:500;text-align:center">SE CONNECTER EN TANT QUE</div>
+      <div id="i18n-role-label" style="color:rgba(255,255,255,0.45);font-size:11px;letter-spacing:.8px;margin-bottom:4px;font-weight:500;text-align:center">CRÉER UN COMPTE EN TANT QUE</div>
       <div class="hero-cards-row">
-      <div class="role-card rc-student" onclick="showLogin('etudiant')">
+      <div class="role-card rc-student" onclick="showRegister('etudiant')">
         <div class="role-icon">🎓</div>
         <div><h4 id="i18n-role-student">Étudiant</h4><p id="i18n-role-student-desc">Recherchez, postulez, signez en ligne</p></div>
       </div>
-      <div class="role-card rc-company" onclick="showLogin('entreprise')">
+      <div class="role-card rc-company" onclick="showRegister('entreprise')">
         <div class="role-icon">🏢</div>
         <div><h4 id="i18n-role-company">Entreprise</h4><p id="i18n-role-company-desc">Gérez vos demandes de stage PFE</p></div>
       </div>
-      <div class="role-card rc-univ" onclick="showLogin('universite')">
+      <div class="role-card rc-univ" onclick="showRegister('universite')">
         <div class="role-icon">🏛️</div>
         <div><h4 id="i18n-role-univ">Université</h4><p id="i18n-role-univ-desc">Validez, archivez, suivez les conventions</p></div>
       </div>
@@ -223,13 +223,27 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
   </div>
 </div>
 
-<div class="modal-overlay" id="registerModal">
-  <div class="modal" style="width:720px;max-height:92vh;overflow-y:auto">
+<div class="modal-overlay" id="registerRoleModal">
+  <div class="modal" style="max-width:480px">
     <div class="modal-header">
-      <div class="modal-title">🏢 Inscription entreprise — Données légales</div>
-      <button class="modal-close" onclick="closeOverlay('registerModal')">✕</button>
+      <div class="modal-title" id="i18n-register-modal-title">Créer un compte</div>
+      <button class="modal-close" onclick="closeOverlay('registerRoleModal')">✕</button>
     </div>
-    <div id="regModalContent"></div>
+    <p id="i18n-register-modal-sub" style="font-size:13px;color:var(--text2);margin:-8px 0 16px">Choisissez votre profil pour vous inscrire</p>
+    <div class="login-role-grid">
+      <div class="login-role-option rc-student" onclick="showRegister('etudiant')">
+        <div class="role-icon">🎓</div>
+        <div><h4 id="i18n-register-role-student">Étudiant</h4><p id="i18n-register-role-student-desc">Recherchez, postulez, signez en ligne</p></div>
+      </div>
+      <div class="login-role-option rc-company" onclick="showRegister('entreprise')">
+        <div class="role-icon">🏢</div>
+        <div><h4 id="i18n-register-role-company">Entreprise</h4><p id="i18n-register-role-company-desc">Gérez vos demandes de stage PFE</p></div>
+      </div>
+      <div class="login-role-option rc-univ" onclick="showRegister('universite')">
+        <div class="role-icon">🏛️</div>
+        <div><h4 id="i18n-register-role-univ">Université</h4><p id="i18n-register-role-univ-desc">Validez, archivez, suivez les conventions</p></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -244,13 +258,14 @@ const state = { lang: 'fr' };
 const i18n = {
   fr: {
     // Landing
-    nav_login:'Connexion', nav_about:'À propos',
+    nav_login:'Connexion', nav_register:"S'inscrire", nav_about:'À propos',
     login_modal_title:'Se connecter', login_modal_sub:'Choisissez votre espace de connexion',
+    register_modal_title:'Créer un compte', register_modal_sub:'Choisissez votre profil pour vous inscrire',
     hero_badge:'🇩🇿 Plateforme 100% algérienne',
     hero_title1:'La nouvelle ère', hero_title2:'de la gestion', hero_title3:'de stages',
     hero_desc:"StageFlow connecte étudiants, entreprises et universités dans un processus entièrement dématérialisé — de la recherche à la signature électronique et l'archivage.",
     hero_cta_start:'Commencer', hero_cta_company:'Espace Entreprise', hero_cta_univ:'Espace Université',
-    role_select_label:'SE CONNECTER EN TANT QUE',
+    role_select_label:'CRÉER UN COMPTE EN TANT QUE',
     role_student:'Étudiant', role_student_desc:'Recherchez, postulez, signez en ligne',
     role_company:'Entreprise', role_company_desc:'Gérez vos demandes de stage PFE',
     role_univ:'Université', role_univ_desc:'Validez, archivez, suivez les conventions',
@@ -304,13 +319,14 @@ const i18n = {
     lang_btn:'AR',
   },
   ar: {
-    nav_login:'تسجيل الدخول', nav_about:'حول المنصة',
+    nav_login:'تسجيل الدخول', nav_register:'إنشاء حساب', nav_about:'حول المنصة',
     login_modal_title:'تسجيل الدخول', login_modal_sub:'اختر مساحة الدخول الخاصة بك',
+    register_modal_title:'إنشاء حساب', register_modal_sub:'اختر نوع حسابك للتسجيل',
     hero_badge:'🇩🇿 منصة جزائرية 100%',
     hero_title1:'العصر الجديد', hero_title2:'لإدارة', hero_title3:'التربصات',
     hero_desc:'StageFlow : بسّط مسار تربصك.',
     hero_cta_start:'ابدأ الآن', hero_cta_company:'فضاء المؤسسة', hero_cta_univ:'فضاء الجامعة',
-    role_select_label:'تسجيل الدخول باعتباري',
+    role_select_label:'إنشاء حساب باعتباري',
     role_student:'طالب', role_student_desc:'ابحث وتقدّم ووقّع عبر الإنترنت',
     role_company:'مؤسسة', role_company_desc:'إدارة طلبات التربص',
     role_univ:'جامعة', role_univ_desc:'تحقق وأرشف وتابع الاتفاقيات',
@@ -378,7 +394,7 @@ function toggleLang(){
 
 function renderLandingTexts(){
   const map = {
-    'i18n-nav-login': 'nav_login', 'i18n-nav-about': 'nav_about',
+    'i18n-nav-login': 'nav_login', 'i18n-nav-register': 'nav_register', 'i18n-nav-about': 'nav_about',
     'i18n-hero-badge': 'hero_badge', 'i18n-hero-title1': 'hero_title1', 'i18n-hero-title2': 'hero_title2', 'i18n-hero-title3': 'hero_title3',
     'i18n-hero-desc': 'hero_desc',
     'i18n-role-label': 'role_select_label',
@@ -390,6 +406,10 @@ function renderLandingTexts(){
     'i18n-login-role-student': 'role_student', 'i18n-login-role-student-desc': 'role_student_desc',
     'i18n-login-role-company': 'role_company', 'i18n-login-role-company-desc': 'role_company_desc',
     'i18n-login-role-univ': 'role_univ', 'i18n-login-role-univ-desc': 'role_univ_desc',
+    'i18n-register-modal-title': 'register_modal_title', 'i18n-register-modal-sub': 'register_modal_sub',
+    'i18n-register-role-student': 'role_student', 'i18n-register-role-student-desc': 'role_student_desc',
+    'i18n-register-role-company': 'role_company', 'i18n-register-role-company-desc': 'role_company_desc',
+    'i18n-register-role-univ': 'role_univ', 'i18n-register-role-univ-desc': 'role_univ_desc',
     'i18n-about-title': 'about_title', 'i18n-about-text1': 'about_text1', 'i18n-about-text2': 'about_text2', 'i18n-about-close': 'close'
   };
   Object.entries(map).forEach(([id, key]) => {
@@ -428,11 +448,14 @@ async function loadPlatformStats() {
 
 function showLogin(role){
   closeOverlay('loginModal');
-  if (role === 'etudiant') {
-    window.location.href = 'etudiant.html';
-    return;
-  }
   window.location.href = ROLE_PAGES[role] || 'index.html';
+}
+
+function showRegister(role){
+  closeOverlay('registerRoleModal');
+  const page = ROLE_PAGES[role];
+  if (!page) return;
+  window.location.href = page + '?register=1';
 }
 
 function openLoginModal(){
@@ -440,7 +463,7 @@ function openLoginModal(){
 }
 
 function openRegisterModal(){
-  window.location.href = 'entreprise.html?register=1';
+  document.getElementById('registerRoleModal').classList.add('open');
 }
 
 function openAbout(){

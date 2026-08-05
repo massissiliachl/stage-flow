@@ -22,4 +22,7 @@
     return;
   }
   showUnivAuth();
+  if (new URLSearchParams(window.location.search).get('register')) {
+    switchAuthMode('register');
+  }
 })();
