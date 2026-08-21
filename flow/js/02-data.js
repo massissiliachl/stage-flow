@@ -14,15 +14,38 @@ async function apiJson(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
   if (!res.ok) {
-    const err = new Error(data.error || 'Erreur serveur');
+    let msg = data.error || data.hint;
+    if (!msg && /<!DOCTYPE/i.test(raw)) {
+      msg = 'Base de données inaccessible. Sur supabase.com, cliquez « Resume project », attendez 2 minutes, puis réessayez.';
+    }
+    const err = new Error(msg || 'Erreur serveur');
     err.code = data.code;
     err.status = res.status;
     err.details = data;
     throw err;
   }
   return data;
+}
+
+async function checkApiDatabaseHealth() {
+  try {
+    const res = await fetch(`${API_BASE}/api/health`);
+    const data = await res.json().catch(function() { return {}; });
+    return !!(data.postgres && data.postgres.connected);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function warnIfDatabaseOffline() {
+  const ok = await checkApiDatabaseHealth();
+  if (ok) return true;
+  showToast('⚠️ Base de données hors ligne — sur supabase.com, cliquez « Resume project », attendez 2 min, puis réessayez.');
+  return false;
 }
 
 function entrepriseSyncFingerprint(entId) {

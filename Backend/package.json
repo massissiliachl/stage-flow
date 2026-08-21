@@ -9,6 +9,7 @@
     "stop": "node scripts/stop-server.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/migrate.js --seed",
+    "db:build-sql": "node scripts/build-install-sql.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

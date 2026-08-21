@@ -196,6 +196,87 @@ const domains = [
   'Commerce & Distribution'
 ];
 
+// Secteurs d'activité proposés à l'inscription entreprise (liste complète)
+const entrepriseSecteursCatalog = {
+  'Industrie & Énergie': [
+    'Agroalimentaire',
+    'Énergie / Pétrochimie',
+    'Énergie / Électricité-Gaz',
+    'Distribution pétrolière',
+    'Industrie manufacturière',
+    'Métallurgie & Sidérurgie',
+    'Chimie & Plasturgie',
+    'Textile & Habillement',
+    'Automobile & Équipementier',
+  ],
+  'Télécommunications & IT': [
+    'Télécommunications',
+    'Services numériques / ESN',
+    'Informatique & Développement logiciel',
+    'Cybersécurité',
+    'Hébergement & Cloud',
+    'Intelligence artificielle & Data',
+  ],
+  'Finance & Banque': [
+    'Finance / Banque',
+    'Banque',
+    'Banque / Épargne',
+    'Assurance',
+    'Conseil & Audit',
+    'Microfinance',
+  ],
+  'Droit & Justice': [
+    'Avocat — Droit des affaires',
+    'Avocat — Droit social & RH',
+    'Notariat',
+    'Huissier de justice',
+    'Conseil juridique',
+  ],
+  'Santé & Paramédical': [
+    'Clinique privée',
+    'Centre médical',
+    'Industrie pharmaceutique',
+    'Laboratoire d\'analyses',
+    'Paramédical & Rééducation',
+  ],
+  'Éducation & Formation': [
+    'Enseignement supérieur',
+    'Formation professionnelle',
+    'Lycée — Enseignement secondaire',
+    'Lycée technique — Enseignement secondaire',
+    'CEM — Enseignement moyen',
+    'École privée & Garderie',
+  ],
+  'BTP & Architecture': [
+    'BTP / Construction',
+    'Architecture & urbanisme',
+    'Génie civil',
+    'Promotion immobilière',
+    'Menuiserie & Aménagement',
+  ],
+  'Tourisme & Hôtellerie': [
+    'Hôtellerie',
+    'Restauration & Food service',
+    'Agence de voyage',
+    'Événementiel & Congrès',
+    'Transport touristique',
+  ],
+  'Administration publique': [
+    'Collectivité locale',
+    'Institution culturelle',
+    'Administration centrale',
+    'Établissement public',
+  ],
+  'Commerce & Distribution': [
+    'Grande distribution',
+    'Commerce de détail',
+    'Électronique / Distribution',
+    'Import-Export',
+    'E-commerce',
+    'Logistique & Transport',
+  ],
+};
+
 // Liste des wilayas couvertes par la plateforme
 const wilayas = ['Toutes les wilayas','Béjaïa','Alger','Sétif','Oran','Constantine','Tizi Ouzou','Annaba'];
 

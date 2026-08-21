@@ -75,7 +75,12 @@ app.get('/api/health', async (req, res) => {
     };
     res.status(200).json(status);
   } catch (err) {
-    status.postgres = { connected: false, error: err.message };
+    const { describeDatabaseError } = require('./lib/db');
+    status.postgres = {
+      connected: false,
+      error: err.message,
+      hint: describeDatabaseError(err),
+    };
     res.status(503).json(status);
   }
 });

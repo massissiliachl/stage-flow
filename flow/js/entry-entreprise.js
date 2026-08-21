@@ -27,6 +27,7 @@
   };
   if (new URLSearchParams(window.location.search).get('register')) {
     openRegisterModal();
+    warnIfDatabaseOffline();
   } else {
     openCompanyLoginModal();
   }

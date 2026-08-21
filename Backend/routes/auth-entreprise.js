@@ -1,5 +1,5 @@
 const express = require('express');
-const { getPool } = require('../lib/db');
+const { getPool, isDatabaseUnavailable, describeDatabaseError } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
@@ -104,10 +104,10 @@ router.post('/register', async (req, res) => {
     });
   }
 
-  const pool = getPool();
-  const client = await pool.connect();
-
+  let client;
   try {
+    const pool = getPool();
+    client = await pool.connect();
     await client.query('BEGIN');
 
     const existingLogin = await client.query(
@@ -244,8 +244,16 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json(response);
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
     console.error('Register entreprise error:', err.message);
+    if (isDatabaseUnavailable(err)) {
+      return res.status(503).json({
+        error: describeDatabaseError(err),
+        code: 'DATABASE_UNAVAILABLE',
+      });
+    }
     if (err.code === '23505') {
       return res.status(409).json({
         error: 'NIF, NRC ou email déjà utilisé par une autre entreprise',
@@ -253,7 +261,7 @@ router.post('/register', async (req, res) => {
     }
     res.status(500).json({ error: 'Erreur lors de la création du compte' });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -338,6 +346,12 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error('Login entreprise error:', err.message);
+    if (isDatabaseUnavailable(err)) {
+      return res.status(503).json({
+        error: describeDatabaseError(err),
+        code: 'DATABASE_UNAVAILABLE',
+      });
+    }
     res.status(500).json({ error: 'Erreur lors de la connexion' });
   }
 });

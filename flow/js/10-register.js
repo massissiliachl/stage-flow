@@ -75,6 +75,22 @@ function studentRegUniversityOptionsHtml() {
     .join('');
 }
 
+function entrepriseSecteurOptionsHtml() {
+  const catalog = typeof entrepriseSecteursCatalog !== 'undefined' ? entrepriseSecteursCatalog : {};
+  const domainOrder = (typeof domains !== 'undefined' ? domains : []).filter(function(d) { return d !== 'Tous les domaines'; });
+  let html = '<option value="">— Choisir un secteur d\'activité —</option>';
+  domainOrder.forEach(function(domain) {
+    const secteurs = catalog[domain] || [];
+    if (!secteurs.length) return;
+    html += '<optgroup label="' + escapeHtmlAttr(domain) + '">';
+    secteurs.forEach(function(secteur) {
+      html += '<option value="' + escapeHtmlAttr(secteur) + '">' + escapeHtmlAttr(secteur) + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
 function onStudentRegUniversityChange() {
   const uniSel = document.getElementById('reg_stu_university');
   const facSel = document.getElementById('reg_stu_faculte');
@@ -160,7 +176,9 @@ function renderRegForm(type){
 
         <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🏭 Activité & contact RH</div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">Secteur d'activité</label><input id="reg_secteur" class="form-input" placeholder="Ex: Agroalimentaire"></div>
+          <div class="form-group"><label class="form-label">Secteur d'activité *</label>
+            <select id="reg_secteur" class="form-select">${entrepriseSecteurOptionsHtml()}</select>
+          </div>
           <div class="form-group"><label class="form-label">Email RH (contact stages) *</label><input id="reg_email" class="form-input" type="email" placeholder="Ex: stages@cevital.com"></div>
         </div>
         <p class="text-xs text-muted">L'encadrant de stage sera désigné lors de l'acceptation d'une candidature étudiante.</p>
@@ -380,8 +398,8 @@ async function submitRegisterEntreprise(){
   const nrc       = (document.getElementById('reg_nrc')?.value||'').trim();
   const nis       = (document.getElementById('reg_nis')?.value||'').trim();
 
-  if(!nom || !nif || !nrc || !adresse || !phone || !email || !pw){
-    showToast('⚠️ Raison sociale, NIF, RC, adresse, téléphone, email et mot de passe sont obligatoires');
+  if(!nom || !nif || !nrc || !adresse || !phone || !email || !pw || !secteur){
+    showToast('⚠️ Raison sociale, NIF, RC, adresse, téléphone, secteur d\'activité, email et mot de passe sont obligatoires');
     return;
   }
   if (!isValidEmail(email)) { showToast('⚠️ Adresse email invalide'); return; }
@@ -390,6 +408,7 @@ async function submitRegisterEntreprise(){
   if(pw.length < 6){ showToast('⚠️ Mot de passe : minimum 6 caractères'); return; }
 
   try {
+    if (!(await warnIfDatabaseOffline())) return;
     const data = await apiJson('/api/auth/entreprise/register', {
       method: 'POST',
       body: JSON.stringify({
