@@ -136,6 +136,7 @@ function renderRegForm(type){
   regEntLogoDataUrl = '';
   const box = document.getElementById('regModalContent');
   box.innerHTML = `
+      <div id="reg_db_status" style="display:none"></div>
       <div style="padding:4px 0 16px">
         <p class="text-sm text-muted mb16">Création de compte entreprise en base PostgreSQL — renseignez les informations légales et fiscales (NIF, RC, etc.).</p>
 
@@ -195,6 +196,7 @@ function renderRegForm(type){
         </div>
       </div>`;
   updateEntrepriseRegLogoPreview();
+  refreshDatabaseStatusBanner('reg_db_status');
 }
 
 function toggleBinomeFields(checked){

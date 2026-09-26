@@ -8,6 +8,7 @@ const state = { role:null, user:null, currentPage:null, signatures:{}, stageRepo
 const registeredAccounts = { etudiant:{}, entreprise:{} };
 
 const API_BASE = 'https://stage-flow-6rl5.onrender.com';
+const SUPABASE_DASHBOARD_URL = 'https://supabase.com/dashboard/project/oyhuelfsmtcicbnwjkha';
 
 async function apiJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -41,10 +42,34 @@ async function checkApiDatabaseHealth() {
   }
 }
 
+function databaseOfflineMessageHtml() {
+  return ''
+    + '<strong>Base de données en pause</strong> (Supabase free tier). '
+    + 'Ouvrez votre <a href="' + SUPABASE_DASHBOARD_URL + '" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">dashboard Supabase</a>, '
+    + 'cliquez <strong>Resume project</strong>, attendez 2 minutes, puis rechargez cette page (Ctrl+F5).';
+}
+
+async function refreshDatabaseStatusBanner(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return false;
+  const ok = await checkApiDatabaseHealth();
+  if (ok) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return true;
+  }
+  el.style.display = 'block';
+  el.innerHTML = ''
+    + '<div style="background:#FFF3CD;border:1px solid #FFC107;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.5;color:#664D03">'
+    + '⚠️ ' + databaseOfflineMessageHtml()
+    + '</div>';
+  return false;
+}
+
 async function warnIfDatabaseOffline() {
   const ok = await checkApiDatabaseHealth();
   if (ok) return true;
-  showToast('⚠️ Base de données hors ligne — sur supabase.com, cliquez « Resume project », attendez 2 min, puis réessayez.');
+  showToast('⚠️ Base en pause — reprenez le projet sur Supabase (Resume project), attendez 2 min.');
   return false;
 }
 
