@@ -1,4 +1,6 @@
-# Empêche la mise en pause automatique du projet Supabase (inactivité > 7 jours).
+# Relance automatique Supabase si la base est en pause.
+# Secret requis dans GitHub : SUPABASE_ACCESS_TOKEN
+# Création : https://supabase.com/dashboard/account/tokens
 name: Supabase Keep-Alive
 
 on:
@@ -6,12 +8,49 @@ on:
     - cron: '0 7 * * *'
   workflow_dispatch:
 
+env:
+  PROJECT_REF: oyhuelfsmtcicbnwjkha
+  API_HEALTH: https://stage-flow-6rl5.onrender.com/api/health
+
 jobs:
-  ping:
+  keepalive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping API health (connexion PostgreSQL)
+      - name: Vérifier connexion PostgreSQL
+        id: health
         run: |
-          echo "Keep-alive StageFlow API + Supabase PostgreSQL"
-          curl -sf --max-time 60 "https://stage-flow-6rl5.onrender.com/api/health" | tee health.json
-          grep -q '"connected":true' health.json && echo "OK — base connectée" || echo "ATTENTION — base hors ligne (reprendre Supabase)"
+          set -e
+          curl -sf --max-time 60 "$API_HEALTH" | tee health.json
+          if grep -q '"connected":true' health.json; then
+            echo "status=ok" >> "$GITHUB_OUTPUT"
+            echo "OK — base connectée"
+          else
+            echo "status=down" >> "$GITHUB_OUTPUT"
+            echo "ATTENTION — base hors ligne"
+            cat health.json
+          fi
+
+      - name: Reprendre le projet Supabase (si en pause)
+        if: steps.health.outputs.status == 'down' && secrets.SUPABASE_ACCESS_TOKEN != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          echo "Restauration du projet Supabase $PROJECT_REF..."
+          curl -sf --max-time 120 -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/restore" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json"
+          echo "Attente 90s (redémarrage)..."
+          sleep 90
+
+      - name: Revérifier après restauration
+        if: steps.health.outputs.status == 'down' && secrets.SUPABASE_ACCESS_TOKEN != ''
+        run: |
+          curl -sf --max-time 60 "$API_HEALTH" | tee health-after.json
+          grep -q '"connected":true' health-after.json && echo "OK — base reconnectée" || (echo "Échec — reprenez manuellement sur supabase.com" && exit 1)
+
+      - name: Avertissement si token manquant
+        if: steps.health.outputs.status == 'down' && secrets.SUPABASE_ACCESS_TOKEN == ''
+        run: |
+          echo "::warning::Base en pause. Ajoutez SUPABASE_ACCESS_TOKEN dans GitHub Secrets pour relance auto."
+          exit 1
