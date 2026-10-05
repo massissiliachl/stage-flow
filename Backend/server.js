@@ -95,6 +95,8 @@ server.on('listening', () => {
   if (!process.env.DATABASE_URL) {
     console.warn('⚠ DATABASE_URL absent — copiez .env.example vers .env');
   }
+  const { startSupabaseWakeScheduler } = require('./lib/supabase-restore');
+  startSupabaseWakeScheduler();
 });
 
 server.on('error', (err) => {
