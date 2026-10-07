@@ -180,7 +180,6 @@ function renderRegForm(type){
           </div>
           <div class="form-group"><label class="form-label">Email RH (contact stages) *</label><input id="reg_email" class="form-input" type="email" placeholder="Ex: stages@cevital.com"></div>
         </div>
-        <p class="text-xs text-muted">L'encadrant de stage sera désigné lors de l'acceptation d'une candidature étudiante.</p>
 
         <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🔐 Compte de connexion</div>
         <div class="form-row">
