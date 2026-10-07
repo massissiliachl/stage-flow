@@ -208,7 +208,7 @@ function renderStudentRegisterForm(){
   const box = document.getElementById('studentLoginModalContent');
   if (!box) return;
   box.innerHTML = `
-    <p class="auth-sub">Créez votre compte étudiant pour postuler, signer et suivre votre convention PFE.</p>
+    <p class="auth-sub">Créez votre compte étudiant pour postuler et suivre votre convention PFE.</p>
 
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text2)">👤 Identité</div>
     <div class="form-group"><label class="form-label">Nom complet *</label><input id="reg_stu_name" class="form-input" placeholder="Ex: Benali Amira"></div>
