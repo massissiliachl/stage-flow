@@ -734,7 +734,7 @@ const i18n = {
     nav_login:'Connexion', nav_about:'À propos',
     hero_badge:'🇩🇿 Plateforme 100% algérienne',
     hero_title1:'La nouvelle ère', hero_title2:'de la gestion', hero_title3:'de stages',
-    hero_desc:"StageFlow connecte étudiants, entreprises et universités dans un processus entièrement dématérialisé — de la recherche à la signature électronique et l'archivage.",
+    hero_desc:"StageFlow prend le processus que vous connaissez et lui trace le chemin le plus court — simple, rapide, sans détour.",
     hero_cta_start:'Commencer', hero_cta_company:'Espace Entreprise', hero_cta_univ:'Espace Université',
     role_select_label:'SE CONNECTER EN TANT QUE',
     role_student:'Étudiant', role_student_desc:'Recherchez et postulez',
