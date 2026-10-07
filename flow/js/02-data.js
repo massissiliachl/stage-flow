@@ -742,8 +742,10 @@ const i18n = {
     role_univ:'Université', role_univ_desc:'Validez, archivez, suivez les conventions',
     stat_students:'ÉTUDIANTS INSCRITS', stat_companies:'ENTREPRISES PARTENAIRES', stat_univs:'COMPTES UNIVERSITAIRES', stat_delay:'CONVENTIONS FINALISÉES', stat_paper:'PAPIER REQUIS',
     about_title:'À propos — StageFlow',
-    about_text1:"StageFlow est une plateforme de gestion dématérialisée des stages PFE qui connecte étudiants, entreprises et universités. Elle permet la recherche et la postulation aux offres, la validation administrative, la signature électronique sécurisée et l'archivage numérique conforme aux normes en vigueur. Objectifs : réduire les délais, supprimer le papier et centraliser les échanges pour une traçabilité complète.",
-    about_text2:"Fonctionnalités : publication d'offres, candidatures en ligne, workflow de validation universitaire, signatures électroniques (empreinte SHA‑256), génération de PDF et suivi statistique.",
+    about_text1:"StageFlow est une plateforme algérienne pensée pour moderniser et centraliser la gestion des stages PFE.",
+    about_text2:"Nous croyons qu'un processus administratif ne devrait jamais freiner un étudiant dans son parcours, ni ralentir une entreprise dans sa croissance, ni surcharger une université dans sa mission.",
+    about_text3:"C'est pourquoi nous avons conçu un environnement unique où chaque acteur trouve sa place — simple à utiliser, rapide à adopter, fiable dans le temps.",
+    about_text4:"Zéro papier. Zéro friction. 100% algérien.",
     close:'Fermer', logout:'Déconnexion',
 
     // Auth université
@@ -801,8 +803,10 @@ const i18n = {
     role_univ:'جامعة', role_univ_desc:'تحقق وأرشف وتابع الاتفاقيات',
     stat_students:'طالب مسجل', stat_companies:'مؤسسة شريكة', stat_univs:'حساب جامعي', stat_delay:'اتفاقيات منجزة', stat_paper:'ورق مطلوب',
     about_title:'حول المنصة — StageFlow',
-    about_text1:'StageFlow هي منصة رقمية لإدارة تربصات نهاية الدراسة تربط الطلبة والمؤسسات والجامعات. تتيح البحث عن العروض والتقديم عليها، والتحقق الإداري، والتوقيع الإلكتروني الآمن، والأرشفة الرقمية المتوافقة مع المعايير المعمول بها. الأهداف: تقليص الآجال، إلغاء الورق، وتمركز التبادلات لضمان تتبع كامل.',
-    about_text2:'الميزات: نشر العروض، التقديم عبر الإنترنت، مسار التحقق الجامعي، التوقيعات الإلكترونية (بصمة SHA-256)، توليد ملفات PDF والمتابعة الإحصائية.',
+    about_text1:'StageFlow منصة جزائرية أُعدّت لتحديث وتمركز إدارة تربصات نهاية الدراسة.',
+    about_text2:'نؤمن أن الإجراءات الإدارية لا ينبغي أن تعيق مسار الطالب، ولا تبطئ نمو المؤسسة، ولا تثقل مهمة الجامعة.',
+    about_text3:'لهذا صمّمنا بيئة واحدة يجد فيها كل فاعل مكانه — سهلة الاستخدام، سريعة التبنّي، موثوقة على المدى.',
+    about_text4:'صفر ورق. صفر عوائق. 100% جزائري.',
     close:'إغلاق', logout:'تسجيل الخروج',
 
     auth_login_tab:'تسجيل الدخول', auth_register_tab:'إنشاء حساب',
@@ -884,7 +888,7 @@ function renderLandingTexts(){
     'i18n-role-company':'role_company', 'i18n-role-company-desc':'role_company_desc',
     'i18n-role-univ':'role_univ', 'i18n-role-univ-desc':'role_univ_desc',
     'i18n-stat-students':'stat_students', 'i18n-stat-companies':'stat_companies', 'i18n-stat-univs':'stat_univs', 'i18n-stat-delay':'stat_delay', 'i18n-stat-paper':'stat_paper',
-    'i18n-about-title':'about_title', 'i18n-about-text1':'about_text1', 'i18n-about-text2':'about_text2', 'i18n-about-close':'close',
+    'i18n-about-title':'about_title', 'i18n-about-text1':'about_text1', 'i18n-about-text2':'about_text2', 'i18n-about-text3':'about_text3', 'i18n-about-text4':'about_text4', 'i18n-about-close':'close',
     'i18n-auth-back':'auth_back', 'i18n-auth-title':'auth_title', 'i18n-auth-subtitle':'auth_subtitle'
   };
   Object.entries(map).forEach(([id,key])=>{

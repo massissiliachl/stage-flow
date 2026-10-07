@@ -1299,7 +1299,7 @@ function renderLandingTexts(){
     'i18n-role-company': 'role_company', 'i18n-role-company-desc': 'role_company_desc',
     'i18n-role-univ': 'role_univ', 'i18n-role-univ-desc': 'role_univ_desc',
     'i18n-stat-students': 'stat_students', 'i18n-stat-companies': 'stat_companies', 'i18n-stat-univs': 'stat_univs', 'i18n-stat-delay': 'stat_delay', 'i18n-stat-paper': 'stat_paper',
-    'i18n-about-title': 'about_title', 'i18n-about-text1': 'about_text1', 'i18n-about-text2': 'about_text2', 'i18n-about-close': 'close'
+    'i18n-about-title': 'about_title', 'i18n-about-text1': 'about_text1', 'i18n-about-text2': 'about_text2', 'i18n-about-text3': 'about_text3', 'i18n-about-text4': 'about_text4', 'i18n-about-close': 'close'
   };
   Object.entries(map).forEach(([id, key]) => {
     const el = document.getElementById(id);
