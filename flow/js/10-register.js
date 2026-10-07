@@ -138,8 +138,6 @@ function renderRegForm(type){
   box.innerHTML = `
       <div id="reg_db_status" style="display:none"></div>
       <div style="padding:4px 0 16px">
-        <p class="text-sm text-muted mb16">Création de compte entreprise en base PostgreSQL — renseignez les informations légales et fiscales (NIF, RC, etc.).</p>
-
         <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text2)">📋 Identité légale</div>
         <div class="form-group"><label class="form-label">Raison sociale *</label><input id="reg_nom" class="form-input" placeholder="Ex: Cevital SPA"></div>
         <div class="form-row">
