@@ -481,8 +481,8 @@ ${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEnt
     <table>
       <thead><tr><th>Référence</th><th>Étudiant(e)</th><th>Encadrant</th><th>Thème</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
       <tbody>
-        ${(()=>{ const myConvs = typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name); });
-          if(!myConvs.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Aucune convention pour le moment</td></tr>';
+        ${(()=>{ const myConvs = (typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) { return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name); })).filter(function(c) { return c.status !== 'archived'; });
+          if(!myConvs.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Aucune convention en cours — consultez les archives si le stage est terminé</td></tr>';
           return myConvs.map(c=>`<tr>
           <td><strong>${c.reference||('SF-2026-0'+(c.id+46))}</strong></td>
           <td>${c.etudiant}</td>
@@ -538,7 +538,7 @@ ${(() => {
 <div class="grid-2 gap16">
   ${(() => {
     const company = state.user.company || state.user.name;
-    const mine = conventions.filter(c => c.company === company || (c.entrepriseId && state.user.entrepriseId && c.entrepriseId === state.user.entrepriseId));
+    const mine = conventions.filter(c => c.company === company || (c.entrepriseId && state.user.entrepriseId && c.entrepriseId === state.user.entrepriseId)).filter(c => c.status !== 'archived');
     if (!mine.length) {
       return '<div class="card"><div class="empty-state" style="padding:24px"><div class="ico">👥</div><p class="text-sm text-muted">Aucun stagiaire pour le moment</p></div></div>';
     }
@@ -564,6 +564,49 @@ ${(() => {
     }).join('');
   })()}
 </div>`,
+
+'ent-archives':`
+<div class="page-header">
+  <h2>🗄️ Archives — conventions de stage</h2>
+</div>
+${(() => {
+  const myArchived = (typeof getEntrepriseConventions === 'function' ? getEntrepriseConventions() : conventions.filter(function(c) {
+    return typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(c) : c.company === (state.user.company || state.user.name);
+  })).filter(function(c) { return c.status === 'archived'; });
+  const rows = myArchived.length ? myArchived.map(function(c) {
+    return `<tr>
+          <td><strong>${c.reference || ('SF-2026-0' + (c.id + 46))}</strong></td>
+          <td>${c.etudiant}</td>
+          <td class="text-xs text-muted">${c.faculte || '—'} · ${c.departement || '—'}</td>
+          <td style="max-width:200px">${c.theme || '—'}</td>
+          <td>${c.periode || '—'}</td>
+          <td>${statusPill(c.status)}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openConventionById(${c.id})">Consulter</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadArchivedConvention(${c.id})">⬇ PDF</button>
+          </td>
+        </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Aucune convention archivée pour le moment</td></tr>';
+  return `
+<div class="grid-4 mb16">
+  <div class="stat-card"><div class="num" style="color:var(--cyan2)">${myArchived.length}</div><div class="lbl">Conventions archivées</div></div>
+</div>
+<div class="card mb16">
+  <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border-radius:var(--r2);padding:14px">
+    <span style="font-size:20px">🔒</span>
+    <div><div class="text-sm" style="font-weight:500">Conservation sécurisée</div><div class="text-xs text-muted">Documents horodatés</div></div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-title">📄 Conventions archivées</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Référence</th><th>Étudiant(e)</th><th>Faculté / Département</th><th>Thème</th><th>Période</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</div>`;
+})()}`,
 
 'ent-profil':`
 ${(() => {

@@ -775,7 +775,7 @@ const i18n = {
     nav_convention:'Ma convention', nav_dossier:'Suivi du dossier', nav_profil:'Mon profil',
     // Sidebar — entreprise
     nav_ent_dashboard:'Tableau de bord', nav_ent_demandes:'Demandes reçues', nav_ent_conventions:'Conventions',
-    nav_ent_stagiaires:'Stagiaires actifs', nav_ent_profil:'Profil entreprise',
+    nav_ent_stagiaires:'Stagiaires actifs', nav_ent_archives:'Archives conventions', nav_ent_profil:'Profil entreprise',
     // Sidebar — université
     nav_univ_dashboard:'Tableau de bord', nav_univ_conventions:'Conventions', nav_univ_etudiants:'Étudiants',
     nav_univ_entreprises:'Entreprises', nav_univ_stats:'Statistiques', nav_univ_archives:'Archives',
@@ -832,7 +832,7 @@ const i18n = {
     nav_dashboard:'لوحة التحكم', nav_search:'البحث عن مؤسسة', nav_demandes:'طلباتي',
     nav_convention:'اتفاقيتي', nav_dossier:'متابعة الملف', nav_profil:'ملفي الشخصي',
     nav_ent_dashboard:'لوحة التحكم', nav_ent_demandes:'الطلبات الواردة', nav_ent_conventions:'الاتفاقيات',
-    nav_ent_stagiaires:'المتربصون النشطون', nav_ent_profil:'ملف المؤسسة',
+    nav_ent_stagiaires:'المتربصون النشطون', nav_ent_archives:'أرشيف الاتفاقيات', nav_ent_profil:'ملف المؤسسة',
     nav_univ_dashboard:'لوحة التحكم', nav_univ_conventions:'الاتفاقيات', nav_univ_etudiants:'الطلبة',
     nav_univ_entreprises:'المؤسسات', nav_univ_stats:'الإحصائيات', nav_univ_archives:'الأرشيف',
     nav_univ_comptes:'الحسابات والهيكلة', nav_univ_paiement:'الاشتراك والدفع',

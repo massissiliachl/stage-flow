@@ -15,6 +15,7 @@ const menus = {
     { labelKey:'nav_ent_demandes', id:'ent-demandes', icon:'📩' },
     { labelKey:'nav_ent_conventions', id:'ent-conventions', icon:'📄' },
     { labelKey:'nav_ent_stagiaires', id:'ent-stagiaires', icon:'👥' },
+    { labelKey:'nav_ent_archives', id:'ent-archives', icon:'🗄️' },
     { labelKey:'nav_ent_profil', id:'ent-profil', icon:'🏢' }
   ],
   universite:[
@@ -93,7 +94,7 @@ function navigateTo(pageId) {
     syncEntrepriseStageDocsFromDb().finally(renderPage);
     return;
   }
-  if (state.role === 'entreprise' && ['ent-dashboard', 'ent-demandes', 'ent-conventions'].includes(pageId) && typeof syncEntrepriseDataFromDb === 'function' && state.user && state.user.entrepriseId) {
+  if (state.role === 'entreprise' && ['ent-dashboard', 'ent-demandes', 'ent-conventions', 'ent-archives'].includes(pageId) && typeof syncEntrepriseDataFromDb === 'function' && state.user && state.user.entrepriseId) {
     syncEntrepriseDataFromDb(state.user).finally(renderPage);
     return;
   }
