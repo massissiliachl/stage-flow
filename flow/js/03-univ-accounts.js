@@ -80,7 +80,8 @@ function buildStudentUniversitiesFromAccounts() {
 
   universityAccounts.forEach(function(a) {
     if (a.type === 'universite') {
-      ensureUni(a.university, a.id);
+      const uni = ensureUni(a.university, a.id);
+      if (uni && a.universityLogoUrl) uni.logoUrl = a.universityLogoUrl;
     }
   });
 

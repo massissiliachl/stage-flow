@@ -71,16 +71,32 @@ function universityLogoHtml(logoUrl, alt) {
 }
 
 function getUniversityRegistrationBranding(universityName) {
-  const uni = findUniversityCatalogEntry(universityName);
-  if (!uni) {
-    return { visible: false, logoHtml: '', hint: '', name: '' };
+  const name = String(universityName || '').trim();
+  const uni = findUniversityCatalogEntry(name);
+  if (uni) {
+    return {
+      visible: true,
+      name: uni.name,
+      logoHtml: universityLogoHtml(uni.logoUrl, uni.attestation.shortNameFr || uni.name),
+      hint: uni.registrationHint || uni.attestation.shortNameFr || '',
+    };
   }
-  return {
-    visible: true,
-    name: uni.name,
-    logoHtml: universityLogoHtml(uni.logoUrl, uni.attestation.shortNameFr || uni.name),
-    hint: uni.registrationHint || uni.attestation.shortNameFr || '',
-  };
+  if (typeof STUDENT_REGISTER_UNIVERSITIES !== 'undefined' && Array.isArray(STUDENT_REGISTER_UNIVERSITIES)) {
+    const key = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const fromList = STUDENT_REGISTER_UNIVERSITIES.find(function(u) {
+      const uk = String(u.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return uk === key;
+    });
+    if (fromList && fromList.logoUrl) {
+      return {
+        visible: true,
+        name: fromList.name,
+        logoHtml: universityLogoHtml(fromList.logoUrl, fromList.name),
+        hint: fromList.registrationHint || '',
+      };
+    }
+  }
+  return { visible: false, logoHtml: '', hint: '', name: '' };
 }
 
 function updateStudentRegUniversityBranding() {

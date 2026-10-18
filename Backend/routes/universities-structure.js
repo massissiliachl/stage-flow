@@ -11,10 +11,11 @@ const router = express.Router();
 router.post('/structure', async (req, res) => {
   const university = (req.body && req.body.university) || '';
   const faculte = (req.body && req.body.faculte) || '';
+  const logo = (req.body && req.body.logo) || '';
 
   try {
     const pool = getPool();
-    const result = await registerUniversityStructure(pool, university, faculte);
+    const result = await registerUniversityStructure(pool, university, faculte, logo);
     if (!result.ok) {
       return res.status(result.error === 'Base de données indisponible' ? 503 : 400).json({ error: result.error });
     }

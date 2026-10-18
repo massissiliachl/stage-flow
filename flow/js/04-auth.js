@@ -1,6 +1,52 @@
 // ══════════════════════════════════
 // AUTH
 // ══════════════════════════════════
+let regUnivLogoDataUrl = '';
+
+function clearUnivRegLogo() {
+  regUnivLogoDataUrl = '';
+  const input = document.getElementById('reg_univ_logo_file');
+  if (input) input.value = '';
+  updateUnivRegLogoPreview();
+}
+
+function onUnivRegLogoChange(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\/(png|jpeg|jpg|webp|svg\+xml)$/i.test(file.type)) {
+    showToast('⚠️ Format accepté : PNG, JPEG, WebP ou SVG');
+    input.value = '';
+    return;
+  }
+  if (file.size > 512 * 1024) {
+    showToast('⚠️ Logo trop volumineux (max 512 Ko)');
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function() {
+    regUnivLogoDataUrl = String(reader.result || '');
+    updateUnivRegLogoPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateUnivRegLogoPreview() {
+  const wrap = document.getElementById('reg_univ_logo_preview');
+  const img = document.getElementById('reg_univ_logo_img');
+  const placeholder = document.getElementById('reg_univ_logo_placeholder');
+  if (!wrap) return;
+  if (regUnivLogoDataUrl) {
+    wrap.style.display = 'flex';
+    if (img) img.src = regUnivLogoDataUrl;
+    if (placeholder) placeholder.style.display = 'none';
+  } else {
+    wrap.style.display = 'none';
+    if (img) img.removeAttribute('src');
+    if (placeholder) placeholder.style.display = 'block';
+  }
+}
+
 function showLogin(role) {
   if(role==='universite'){
     showUnivAuth();
@@ -240,6 +286,9 @@ function renderUnivAuth() {
     </div>
     ${isLogin ? loginFormHTML() : registerFormHTML()}
   `;
+  if (!isLogin && state.regAccountType === 'universite') {
+    updateUnivRegLogoPreview();
+  }
 }
 
 function loginFormHTML(){
@@ -307,6 +356,20 @@ function registerFormHTML(){
         <div class="form-group"><label class="form-label">${t('auth_resp_title')}</label><input id="regTitle" class="form-input" placeholder="Ex: Responsable des stages"></div>
       </div>
       <div class="form-group"><label class="form-label">${type==='universite'?t('auth_org_univ'):type==='faculte'?t('auth_org_fac'):t('auth_org_dept')}</label><input id="regOrgName" class="form-input" placeholder="${type==='universite'?t('auth_org_univ_ph'):type==='faculte'?t('auth_org_fac_ph'):t('auth_org_dept_ph')}"></div>
+      ${type==='universite' ? `
+      <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:12px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🖼 Logo de l'université</div>
+      <div id="reg_univ_logo_zone" style="border:2px dashed var(--border);border-radius:var(--r2);padding:18px 16px;text-align:center;background:var(--bg2);margin-bottom:14px">
+        <div id="reg_univ_logo_placeholder" class="text-xs text-muted" style="margin-bottom:10px">Visible lors de l'inscription étudiant (PNG recommandé)</div>
+        <div id="reg_univ_logo_preview" style="display:none;flex-direction:column;align-items:center;gap:10px;margin-bottom:12px">
+          <img id="reg_univ_logo_img" alt="Aperçu du logo université" style="max-height:88px;max-width:240px;object-fit:contain;background:#fff;border-radius:8px;padding:6px">
+          <button type="button" class="btn btn-ghost" style="font-size:12px" onclick="clearUnivRegLogo()">Retirer l'image</button>
+        </div>
+        <label class="btn btn-ghost" style="cursor:pointer;margin:0;display:inline-flex;align-items:center;gap:6px">
+          📎 Ajouter le logo
+          <input id="reg_univ_logo_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="onUnivRegLogoChange(this)">
+        </label>
+        <p class="text-xs text-muted" style="margin-top:10px;margin-bottom:0">PNG de préférence · max 512 Ko</p>
+      </div>` : ''}
       <div class="form-group"><label class="form-label">${t('auth_email')}</label><input id="regEmail" class="form-input" placeholder="ex: dept@univ-bejaia.dz"></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">${t('auth_password')}</label><input id="regPassword" type="password" class="form-input" placeholder="••••••••"></div>
@@ -322,6 +385,7 @@ function registerFormHTML(){
 
 function onRegTypeChange(val){
   state.regAccountType = val;
+  if (val !== 'universite') clearUnivRegLogo();
   renderUnivAuth();
 }
 
@@ -357,16 +421,20 @@ function submitUnivRegister(){
     type, parentId, name, role_title: roleTitle || accountTypeLabels[type],
     university, faculte, departement, email, password: pass, avatar: initials
   };
+  if (type === 'universite' && regUnivLogoDataUrl) {
+    newAccount.universityLogoUrl = regUnivLogoDataUrl;
+  }
 
   universityAccounts.push(newAccount);
   if (typeof saveUniversityAccountsToStorage === 'function') saveUniversityAccountsToStorage();
   if (typeof syncUniversityStructureToDb === 'function') {
+    const logoForSync = type === 'universite' ? regUnivLogoDataUrl : '';
     const syncPromise = type === 'universite'
-      ? syncUniversityStructureToDb(university, null)
+      ? syncUniversityStructureToDb(university, null, logoForSync)
       : type === 'faculte'
-        ? syncUniversityStructureToDb(university, orgName)
+        ? syncUniversityStructureToDb(university, orgName, '')
         : type === 'departement'
-          ? syncUniversityStructureToDb(university, faculte)
+          ? syncUniversityStructureToDb(university, faculte, '')
           : Promise.resolve(false);
     syncPromise.then(function(ok) {
       if (!ok && (type === 'universite' || type === 'faculte')) {
@@ -375,6 +443,7 @@ function submitUnivRegister(){
     });
   }
   showToast(`✅ Compte ${accountTypeLabels[type]} créé — vous pouvez vous connecter`);
+  if (type === 'universite') clearUnivRegLogo();
   state.authMode = 'login';
   renderUnivAuth();
 }

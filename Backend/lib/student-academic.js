@@ -56,6 +56,8 @@ function mergeUniversityLists(baseList, extraRows) {
         faculties: [],
       };
     }
+    const rowLogo = String(row.university_logo || row.logo || '').trim();
+    if (rowLogo) byName[uniName].logoUrl = rowLogo;
     if (facName && !byName[uniName].faculties.includes(facName)) {
       byName[uniName].faculties.push(facName);
     }
@@ -76,7 +78,7 @@ async function listStudentUniversitiesMerged(pool) {
   if (!pool) return base;
   try {
     const res = await pool.query(
-      `SELECT u.name AS university_name, f.name AS faculty_name
+      `SELECT u.name AS university_name, u.logo AS university_logo, f.name AS faculty_name
        FROM universities u
        LEFT JOIN faculties f ON f.university_id = u.id AND (f.is_active IS NULL OR f.is_active IS NOT FALSE)
        WHERE (u.is_active IS NULL OR u.is_active IS NOT FALSE)
@@ -89,18 +91,21 @@ async function listStudentUniversitiesMerged(pool) {
   }
 }
 
-async function registerUniversityStructure(pool, universityName, faculteName) {
+async function registerUniversityStructure(pool, universityName, faculteName, logoUrl) {
   const university = String(universityName || '').trim();
   const faculte = String(faculteName || '').trim();
+  const logo = String(logoUrl || '').trim();
   if (!university) return { ok: false, error: 'Nom université requis' };
   if (!pool) return { ok: false, error: 'Base de données indisponible' };
 
   const uniRes = await pool.query(
-    `INSERT INTO universities (name)
-     VALUES ($1)
-     ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
+    `INSERT INTO universities (name, logo)
+     VALUES ($1, $2)
+     ON CONFLICT (name) DO UPDATE SET
+       updated_at = NOW(),
+       logo = CASE WHEN EXCLUDED.logo IS NOT NULL AND EXCLUDED.logo <> '' THEN EXCLUDED.logo ELSE universities.logo END
      RETURNING id, name`,
-    [university]
+    [university, logo || null]
   );
   const universityId = uniRes.rows[0].id;
 

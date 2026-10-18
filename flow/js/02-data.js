@@ -33,14 +33,19 @@ async function apiJson(path, options = {}) {
 }
 
 /** Enregistre université / faculté en base pour l'inscription étudiant. */
-async function syncUniversityStructureToDb(universityName, faculteName) {
+async function syncUniversityStructureToDb(universityName, faculteName, logoUrl) {
   const university = String(universityName || '').trim();
   const faculte = String(faculteName || '').trim();
+  const logo = String(logoUrl || '').trim();
   if (!university) return false;
   try {
     await apiJson('/api/universities/structure', {
       method: 'POST',
-      body: JSON.stringify({ university, faculte: faculte || undefined }),
+      body: JSON.stringify({
+        university,
+        faculte: faculte || undefined,
+        logo: logo || undefined,
+      }),
     });
     return true;
   } catch (e) {
@@ -59,11 +64,12 @@ async function syncAllUniversityAccountsStructureToDb() {
       const key = a.university;
       if (!seenUni.has(key)) {
         seenUni.add(key);
-        await syncUniversityStructureToDb(a.university, null);
+        await syncUniversityStructureToDb(a.university, null, a.universityLogoUrl || '');
       }
     }
     if (a.type === 'faculte' && a.university && a.faculte) {
-      await syncUniversityStructureToDb(a.university, a.faculte);
+      const root = universityAccounts.find(function(u) { return u.type === 'universite' && u.university === a.university; });
+      await syncUniversityStructureToDb(a.university, a.faculte, root && root.universityLogoUrl ? root.universityLogoUrl : '');
     }
   }
 }
