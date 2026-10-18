@@ -32,6 +32,42 @@ async function apiJson(path, options = {}) {
   return data;
 }
 
+/** Enregistre université / faculté en base pour l'inscription étudiant. */
+async function syncUniversityStructureToDb(universityName, faculteName) {
+  const university = String(universityName || '').trim();
+  const faculte = String(faculteName || '').trim();
+  if (!university) return false;
+  try {
+    await apiJson('/api/universities/structure', {
+      method: 'POST',
+      body: JSON.stringify({ university, faculte: faculte || undefined }),
+    });
+    return true;
+  } catch (e) {
+    console.warn('[StageFlow] Sync université → inscription étudiant:', e.message);
+    return false;
+  }
+}
+
+/** Envoie en base tous les comptes université / facultés du navigateur (une fois au chargement). */
+async function syncAllUniversityAccountsStructureToDb() {
+  if (typeof universityAccounts === 'undefined' || !universityAccounts.length) return;
+  const seenUni = new Set();
+  for (let i = 0; i < universityAccounts.length; i++) {
+    const a = universityAccounts[i];
+    if (a.type === 'universite' && a.university) {
+      const key = a.university;
+      if (!seenUni.has(key)) {
+        seenUni.add(key);
+        await syncUniversityStructureToDb(a.university, null);
+      }
+    }
+    if (a.type === 'faculte' && a.university && a.faculte) {
+      await syncUniversityStructureToDb(a.university, a.faculte);
+    }
+  }
+}
+
 async function checkApiDatabaseHealth() {
   try {
     const res = await fetch(`${API_BASE}/api/health`);

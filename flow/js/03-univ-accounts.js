@@ -37,7 +37,63 @@ let universityAccounts = [
   }
 ];
 
+const UNIVERSITY_ACCOUNTS_STORAGE_KEY = 'stageflow_university_accounts_v1';
+
+function loadUniversityAccountsFromStorage() {
+  try {
+    const raw = localStorage.getItem(UNIVERSITY_ACCOUNTS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) return;
+    universityAccounts.length = 0;
+    parsed.forEach(function(a) { universityAccounts.push(a); });
+  } catch (e) {
+    console.warn('[StageFlow] Chargement comptes université:', e.message);
+  }
+}
+
+function saveUniversityAccountsToStorage() {
+  try {
+    localStorage.setItem(UNIVERSITY_ACCOUNTS_STORAGE_KEY, JSON.stringify(universityAccounts));
+  } catch (e) {
+    console.warn('[StageFlow] Sauvegarde comptes université:', e.message);
+  }
+}
+
+loadUniversityAccountsFromStorage();
+
 const accountTypeLabels = { universite:'Université (admin global)', faculte:'Faculté', departement:'Département' };
+
+/** Universités / facultés dérivées des comptes créés dans l'interface (repli local). */
+function buildStudentUniversitiesFromAccounts() {
+  if (!universityAccounts || !universityAccounts.length) return [];
+  const byName = {};
+
+  function ensureUni(uniName, idHint) {
+    const name = String(uniName || '').trim();
+    if (!name) return null;
+    if (!byName[name]) {
+      byName[name] = { id: idHint || ('acc-' + name.slice(0, 12)), name, logoUrl: '', registrationHint: '', faculties: [] };
+    }
+    return byName[name];
+  }
+
+  universityAccounts.forEach(function(a) {
+    if (a.type === 'universite') {
+      ensureUni(a.university, a.id);
+    }
+  });
+
+  universityAccounts.forEach(function(a) {
+    if (a.type !== 'faculte') return;
+    const uni = ensureUni(a.university, a.parentId);
+    if (!uni) return;
+    const f = String(a.faculte || '').trim();
+    if (f && !uni.faculties.includes(f)) uni.faculties.push(f);
+  });
+
+  return Object.values(byName);
+}
 
 // Libellé traduit du type de compte (pour l'affichage UI)
 function accountTypeLabel(type){

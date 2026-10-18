@@ -23,3 +23,7 @@
 // (signatures, demandes, notes) pour repartir d'une démonstration vierge.
 // ──────────────────────────────────
 resetSharedData();
+
+if (typeof syncAllUniversityAccountsStructureToDb === 'function') {
+  syncAllUniversityAccountsStructureToDb();
+}

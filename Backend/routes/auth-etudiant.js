@@ -3,7 +3,10 @@ const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
-const { listStudentUniversities, isValidStudentFaculty } = require('../lib/student-academic');
+const {
+  listStudentUniversitiesMerged,
+  isValidStudentFacultyMerged,
+} = require('../lib/student-academic');
 
 const router = express.Router();
 
@@ -91,8 +94,15 @@ router.get('/ping', (req, res) => {
   res.json({ ok: true, service: 'auth-etudiant' });
 });
 
-router.get('/universities', (req, res) => {
-  res.json({ universities: listStudentUniversities() });
+router.get('/universities', async (req, res) => {
+  try {
+    const pool = getPool();
+    const universities = await listStudentUniversitiesMerged(pool);
+    res.json({ universities });
+  } catch (err) {
+    console.error('GET /universities:', err.message);
+    res.status(500).json({ error: 'Impossible de charger les universités' });
+  }
 });
 
 router.post('/register', async (req, res) => {
@@ -136,15 +146,15 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Université et faculté sont obligatoires' });
   }
 
-  if (!isValidStudentFaculty(universityTrim, faculteTrim)) {
-    return res.status(400).json({ error: 'Université ou faculté invalide' });
-  }
-
   if (password.length < 6) {
     return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
   }
 
   const pool = getPool();
+
+  if (!(await isValidStudentFacultyMerged(pool, universityTrim, faculteTrim))) {
+    return res.status(400).json({ error: 'Université ou faculté invalide' });
+  }
   const client = await pool.connect();
 
   try {

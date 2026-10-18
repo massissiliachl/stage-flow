@@ -359,6 +359,21 @@ function submitUnivRegister(){
   };
 
   universityAccounts.push(newAccount);
+  if (typeof saveUniversityAccountsToStorage === 'function') saveUniversityAccountsToStorage();
+  if (typeof syncUniversityStructureToDb === 'function') {
+    const syncPromise = type === 'universite'
+      ? syncUniversityStructureToDb(university, null)
+      : type === 'faculte'
+        ? syncUniversityStructureToDb(university, orgName)
+        : type === 'departement'
+          ? syncUniversityStructureToDb(university, faculte)
+          : Promise.resolve(false);
+    syncPromise.then(function(ok) {
+      if (!ok && (type === 'universite' || type === 'faculte')) {
+        showToast('ℹ️ Compte créé localement — liste étudiant mise à jour sur cet appareil. Déployez l’API pour synchroniser partout.');
+      }
+    });
+  }
   showToast(`✅ Compte ${accountTypeLabels[type]} créé — vous pouvez vous connecter`);
   state.authMode = 'login';
   renderUnivAuth();
@@ -420,6 +435,10 @@ function submitChildAccount(){
   };
 
   universityAccounts.push(newAccount);
+  if (typeof saveUniversityAccountsToStorage === 'function') saveUniversityAccountsToStorage();
+  if (typeof syncUniversityStructureToDb === 'function' && childType === 'faculte') {
+    syncUniversityStructureToDb(parent.university, orgName);
+  }
   closeOverlay('childAccountModal');
   showToast(`✅ ${accountTypeLabels[childType]} "${orgName}" créé(e) avec succès`);
   navigateTo('univ-comptes');

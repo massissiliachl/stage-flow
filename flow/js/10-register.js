@@ -48,7 +48,7 @@ function updateEntrepriseRegLogoPreview() {
   }
 }
 
-const STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistration === 'function'
+let STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistration === 'function'
   ? getUniversitiesForStudentRegistration()
   : [
   {
@@ -66,6 +66,69 @@ const STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistrati
     ],
   },
 ];
+
+const BEJAIA_UNIVERSITY_NAME = 'Université Abderrahmane Mira — Béjaïa';
+
+function mergeStudentRegisterUniversities(apiList, accountList) {
+  const byName = {};
+  function addUni(u) {
+    const name = String(u.name || '').trim();
+    if (!name) return;
+    if (!byName[name]) {
+      byName[name] = {
+        id: u.id || name,
+        name,
+        logoUrl: u.logoUrl || '',
+        registrationHint: u.registrationHint || '',
+        faculties: [],
+      };
+    }
+    (u.faculties || []).forEach(function(f) {
+      f = String(f || '').trim();
+      if (f && !byName[name].faculties.includes(f)) byName[name].faculties.push(f);
+    });
+  }
+  (apiList || []).forEach(addUni);
+  (accountList || []).forEach(addUni);
+  const ordered = [];
+  if (byName[BEJAIA_UNIVERSITY_NAME]) ordered.push(byName[BEJAIA_UNIVERSITY_NAME]);
+  Object.keys(byName)
+    .filter(function(n) { return n !== BEJAIA_UNIVERSITY_NAME; })
+    .sort(function(a, b) { return a.localeCompare(b, 'fr'); })
+    .forEach(function(n) { ordered.push(byName[n]); });
+  return ordered.length ? ordered : STUDENT_REGISTER_UNIVERSITIES;
+}
+
+async function loadStudentRegisterUniversities() {
+  const catalog = typeof getUniversitiesForStudentRegistration === 'function'
+    ? getUniversitiesForStudentRegistration()
+    : [];
+  let apiList = [];
+  try {
+    const data = await apiJson('/api/auth/etudiant/universities');
+    apiList = data.universities || [];
+  } catch (e) {
+    console.warn('[StageFlow] Liste universités (API):', e.message);
+  }
+  const accountList = typeof buildStudentUniversitiesFromAccounts === 'function'
+    ? buildStudentUniversitiesFromAccounts()
+    : [];
+  STUDENT_REGISTER_UNIVERSITIES = mergeStudentRegisterUniversities(
+    mergeStudentRegisterUniversities(apiList, catalog),
+    accountList
+  );
+}
+
+function refreshStudentUniversitySelect() {
+  const uniSel = document.getElementById('reg_stu_university');
+  if (!uniSel) return;
+  const prev = uniSel.value;
+  uniSel.innerHTML = studentRegUniversityOptionsHtml();
+  if (prev && STUDENT_REGISTER_UNIVERSITIES.some(function(u) { return u.name === prev; })) {
+    uniSel.value = prev;
+    onStudentRegUniversityChange();
+  }
+}
 
 function studentRegUniversityOptionsHtml() {
   return ['<option value="">— Choisir votre université —</option>']
@@ -204,6 +267,7 @@ function toggleBinomeFields(checked){
 function renderStudentRegisterForm(){
   const box = document.getElementById('studentLoginModalContent');
   if (!box) return;
+  const initialOptions = studentRegUniversityOptionsHtml();
   box.innerHTML = `
     <p class="auth-sub">Créez votre compte étudiant pour postuler et suivre votre convention PFE.</p>
 
@@ -217,7 +281,7 @@ function renderStudentRegisterForm(){
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin:16px 0 14px;font-size:12px;font-weight:600;color:var(--text2)">🎓 Parcours académique</div>
     <div id="reg_stu_university_branding" style="display:none;margin-bottom:14px"></div>
     <div class="form-group"><label class="form-label">Université *</label>
-      <select id="reg_stu_university" class="form-select" onchange="onStudentRegUniversityChange()">${studentRegUniversityOptionsHtml()}</select>
+      <select id="reg_stu_university" class="form-select" onchange="onStudentRegUniversityChange()">${initialOptions}</select>
     </div>
     <div class="form-group"><label class="form-label">Faculté *</label>
       <select id="reg_stu_faculte" class="form-select" disabled><option value="">— Choisir d'abord votre université —</option></select>
@@ -257,6 +321,10 @@ function renderStudentRegisterForm(){
     </p>`;
   toggleStudentGroupFields('solo');
   if (typeof updateStudentRegUniversityBranding === 'function') updateStudentRegUniversityBranding();
+  loadStudentRegisterUniversities().then(function() {
+    refreshStudentUniversitySelect();
+    if (typeof updateStudentRegUniversityBranding === 'function') updateStudentRegUniversityBranding();
+  });
 }
 
 function toggleStudentGroupFields(groupType){
