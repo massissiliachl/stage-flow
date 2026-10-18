@@ -29,6 +29,22 @@ const UNIVERSITY_CATALOG = [
       city: 'Béjaïa',
     },
   },
+  {
+    id: 'univ-alger2',
+    name: 'Université Alger2',
+    logoUrl: '',
+    registrationHint: 'Université Alger 2',
+    faculties: ['Faculté principale'],
+    attestation: {
+      headerNameFr: 'UNIVERSITÉ ALGER 2',
+      ministryAr: 'وزارة التعليم العالي والبحث العلمي',
+      universityAr: 'جامعة الجزائر 2',
+      taglineAmazigh: '',
+      shortNameFr: 'Université Alger2',
+      enrolledAt: "l'Université Alger2",
+      city: 'Alger',
+    },
+  },
 ];
 
 function findUniversityCatalogEntry(universityName) {

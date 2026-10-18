@@ -116,21 +116,43 @@ async function registerUniversityStructure(pool, universityName, faculteName) {
   return { ok: true, universityId };
 }
 
+function normalizeUniversityNameKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function findUniversityInList(list, universityName) {
   const name = String(universityName || '').trim();
   if (!name) return null;
-  return (list || []).find(function(u) { return u.name === name; }) || null;
+  const key = normalizeUniversityNameKey(name);
+  return (list || []).find(function(u) {
+    return u.name === name || normalizeUniversityNameKey(u.name) === key;
+  }) || null;
 }
 
 function findUniversityByName(universityName) {
   return findUniversityInList(STUDENT_UNIVERSITIES, universityName);
 }
 
+function normalizeFacultyKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function isValidStudentFacultyInList(list, universityName, faculteName) {
   const uni = findUniversityInList(list, universityName);
   if (!uni) return false;
   const fac = String(faculteName || '').trim();
-  return uni.faculties.includes(fac);
+  const facKey = normalizeFacultyKey(fac);
+  return uni.faculties.some(function(f) {
+    return f === fac || normalizeFacultyKey(f) === facKey;
+  });
 }
 
 function isValidStudentFaculty(universityName, faculteName) {

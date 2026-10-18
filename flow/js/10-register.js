@@ -69,33 +69,44 @@ let STUDENT_REGISTER_UNIVERSITIES = typeof getUniversitiesForStudentRegistration
 
 const BEJAIA_UNIVERSITY_NAME = 'Université Abderrahmane Mira — Béjaïa';
 
+function normalizeUniNameKey(name) {
+  return String(name || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function mergeStudentRegisterUniversities(apiList, accountList) {
-  const byName = {};
+  const byKey = {};
   function addUni(u) {
     const name = String(u.name || '').trim();
     if (!name) return;
-    if (!byName[name]) {
-      byName[name] = {
+    const key = normalizeUniNameKey(name);
+    if (!byKey[key]) {
+      byKey[key] = {
         id: u.id || name,
         name,
         logoUrl: u.logoUrl || '',
         registrationHint: u.registrationHint || '',
         faculties: [],
       };
+    } else if (!byKey[key].logoUrl && u.logoUrl) {
+      byKey[key].logoUrl = u.logoUrl;
     }
     (u.faculties || []).forEach(function(f) {
       f = String(f || '').trim();
-      if (f && !byName[name].faculties.includes(f)) byName[name].faculties.push(f);
+      if (!f) return;
+      const exists = byKey[key].faculties.some(function(x) { return normalizeUniNameKey(x) === normalizeUniNameKey(f); });
+      if (!exists) byKey[key].faculties.push(f);
     });
   }
   (apiList || []).forEach(addUni);
   (accountList || []).forEach(addUni);
+  const all = Object.values(byKey);
+  const bejaiaKey = normalizeUniNameKey(BEJAIA_UNIVERSITY_NAME);
   const ordered = [];
-  if (byName[BEJAIA_UNIVERSITY_NAME]) ordered.push(byName[BEJAIA_UNIVERSITY_NAME]);
-  Object.keys(byName)
-    .filter(function(n) { return n !== BEJAIA_UNIVERSITY_NAME; })
-    .sort(function(a, b) { return a.localeCompare(b, 'fr'); })
-    .forEach(function(n) { ordered.push(byName[n]); });
+  const bejaia = all.find(function(u) { return normalizeUniNameKey(u.name) === bejaiaKey; });
+  if (bejaia) ordered.push(bejaia);
+  all.filter(function(u) { return normalizeUniNameKey(u.name) !== bejaiaKey; })
+    .sort(function(a, b) { return a.name.localeCompare(b.name, 'fr'); })
+    .forEach(function(u) { ordered.push(u); });
   return ordered.length ? ordered : STUDENT_REGISTER_UNIVERSITIES;
 }
 
@@ -177,9 +188,11 @@ function onStudentRegUniversityChange() {
 }
 
 function isValidStudentRegFaculty(universityName, faculteName) {
-  const uni = STUDENT_REGISTER_UNIVERSITIES.find(function(u) { return u.name === (universityName || '').trim(); });
+  const uniKey = normalizeUniNameKey(universityName);
+  const uni = STUDENT_REGISTER_UNIVERSITIES.find(function(u) { return normalizeUniNameKey(u.name) === uniKey; });
   if (!uni) return false;
-  return uni.faculties.includes((faculteName || '').trim());
+  const facKey = normalizeUniNameKey(faculteName);
+  return uni.faculties.some(function(f) { return normalizeUniNameKey(f) === facKey; });
 }
 
 function openRegisterModal(){
