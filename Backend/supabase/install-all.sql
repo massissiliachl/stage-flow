@@ -344,6 +344,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_entreprises_nrc ON entreprises(nrc) WHERE 
 -- --- 002-stage-demand-duree.sql ---
 -- Durée de stage saisie par l'étudiant lors de la candidature
 ALTER TABLE stage_demands ADD COLUMN IF NOT EXISTS duree TEXT;
+ALTER TABLE stage_demands ADD COLUMN IF NOT EXISTS message TEXT;
 
 
 -- --- 003-convention-hash.sql ---

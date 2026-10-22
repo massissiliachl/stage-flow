@@ -120,9 +120,21 @@ async function insertStageDemandRow(pool, payload) {
     faculteVal,
     deptVal,
     dureeTrim,
+    messageTrim,
   } = payload;
 
   const attempts = [
+    {
+      name: 'schéma complet avec message',
+      run: (sid) => pool.query(
+        `INSERT INTO stage_demands (
+           student_id, student_name, entreprise_id, entreprise_nom,
+           theme, encadrant, status, demand_date, faculte, departement, duree, message
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_DATE, $7, $8, $9, $10)
+         RETURNING id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, faculte, departement, duree, message`,
+        [sid, nameTrim, entId, companyName, themeTrim, null, faculteVal || null, deptVal || null, dureeTrim, messageTrim || null]
+      ),
+    },
     {
       name: 'schéma complet',
       run: (sid) => pool.query(
@@ -285,6 +297,8 @@ demandesRouter.post('/', async (req, res) => {
       if (!deptVal) deptVal = meta.deptVal;
     }
 
+    const motivation = message ? String(message).trim() : '';
+
     const row = await insertStageDemandRow(pool, {
       studentUserId,
       nameTrim,
@@ -294,13 +308,13 @@ demandesRouter.post('/', async (req, res) => {
       faculteVal,
       deptVal,
       dureeTrim,
+      messageTrim: motivation,
     });
 
-    const motivation = message ? String(message).trim() : '';
     res.status(201).json({
       message: 'Demande envoyée — visible immédiatement par l\'entreprise',
       demande: {
-        ...mapDemandeRow({ ...row, message: motivation }),
+        ...mapDemandeRow({ ...row, message: row.message != null ? row.message : motivation }),
         studentLabel: studentLabel || nameTrim,
       },
     });

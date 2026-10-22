@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS stage_demands (
   faculte         TEXT,
   departement     TEXT,
   duree           TEXT,
+  message         TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );

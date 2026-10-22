@@ -25,8 +25,23 @@ function mapDemande(row) {
     studentName: row.student_name || '—',
     studentLabel: row.student_name || '—',
     duree: row.duree || '',
+    message: row.message || '',
+    faculte: row.faculte || '',
+    departement: row.departement || '',
     fromDb: true,
   };
+}
+
+const STAGE_DEMAND_SELECT = `id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree, faculte, departement, message`;
+const STAGE_DEMAND_SELECT_BASIC = `id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree, faculte, departement`;
+
+async function queryStageDemands(pool, sqlTail, params) {
+  try {
+    return await pool.query(`SELECT ${STAGE_DEMAND_SELECT} ${sqlTail}`, params);
+  } catch (err) {
+    if (err.code !== '42703') throw err;
+    return pool.query(`SELECT ${STAGE_DEMAND_SELECT_BASIC} ${sqlTail}`, params);
+  }
 }
 
 function mapProfile(row) {
@@ -292,20 +307,16 @@ router.get('/:entrepriseId/demandes/pulse', async (req, res) => {
 
     let newDemandes = [];
     if (sinceId > 0) {
-      const fresh = await pool.query(
-        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
-         FROM stage_demands
-         WHERE entreprise_id = $1 AND id > $2
-         ORDER BY id ASC`,
+      const fresh = await queryStageDemands(
+        pool,
+        'FROM stage_demands WHERE entreprise_id = $1 AND id > $2 ORDER BY id ASC',
         [entrepriseId, sinceId]
       );
       newDemandes = fresh.rows.map(mapDemande);
     } else {
-      const all = await pool.query(
-        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
-         FROM stage_demands
-         WHERE entreprise_id = $1
-         ORDER BY id ASC`,
+      const all = await queryStageDemands(
+        pool,
+        'FROM stage_demands WHERE entreprise_id = $1 ORDER BY id ASC',
         [entrepriseId]
       );
       newDemandes = all.rows.map(mapDemande);
@@ -337,11 +348,9 @@ router.get('/:entrepriseId/demandes', async (req, res) => {
 
   try {
     const pool = getPool();
-    const result = await pool.query(
-      `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
-       FROM stage_demands
-       WHERE entreprise_id = $1
-       ORDER BY demand_date DESC NULLS LAST, id DESC`,
+    const result = await queryStageDemands(
+      pool,
+      'FROM stage_demands WHERE entreprise_id = $1 ORDER BY demand_date DESC NULLS LAST, id DESC',
       [entrepriseId]
     );
     res.json({ demandes: result.rows.map(mapDemande) });
@@ -391,11 +400,9 @@ router.get('/:entrepriseId/dashboard', async (req, res) => {
     }
 
     const [demandesRes, conventionsRes] = await Promise.all([
-      pool.query(
-        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, encadrant, status, demand_date, duree
-         FROM stage_demands
-         WHERE entreprise_id = $1
-         ORDER BY demand_date DESC NULLS LAST, id DESC`,
+      queryStageDemands(
+        pool,
+        'FROM stage_demands WHERE entreprise_id = $1 ORDER BY demand_date DESC NULLS LAST, id DESC',
         [entrepriseId]
       ),
       fetchEntrepriseConventions(pool, entrepriseId),

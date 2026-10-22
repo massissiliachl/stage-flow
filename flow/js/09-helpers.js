@@ -287,6 +287,46 @@ function buildLettreEnvoiCourte(u, companyName){
   return `Madame, Monsieur,\n\nJe suis ${u.name}${formatStudentGroupShort(u) ? ' (' + formatStudentGroupShort(u) + ')' : ''}, étudiant(e) en ${u.specialty||'spécialité non précisée'} à ${u.university||'mon université'}. Je sollicite un stage de fin d'études chez ${companyName} dans le cadre de mon PFE portant sur : « ${u.theme||'thème à préciser'} ».\n\nDans l'attente de votre retour favorable, je vous prie d'agréer mes salutations distinguées.`;
 }
 
+function openEntrepriseDemandeView(demandeId) {
+  const d = demandes.find(function(x) { return x.id === demandeId; });
+  if (!d) {
+    showToast('⚠️ Demande introuvable');
+    return;
+  }
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (!modal || !content) {
+    showToast('⚠️ Impossible d\'ouvrir la candidature');
+    return;
+  }
+  const label = d.studentLabel || d.studentName || 'Étudiant(e)';
+  if (title) title.textContent = '📩 Candidature — ' + label;
+  const safeMsg = String(d.message || 'Aucun message de motivation enregistré pour cette candidature.')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const safeTheme = String(d.theme || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const acad = [d.faculte, d.departement].filter(Boolean).join(' · ');
+  content.innerHTML = `
+    <div class="text-xs text-muted mb12">Reçue le ${d.date || '—'} · ${statusPill(d.status)}</div>
+    <div class="form-row mb12">
+      <div class="form-group"><label class="form-label">Étudiant(e)</label><div class="form-input" style="background:var(--bg2)">${label}</div></div>
+      <div class="form-group"><label class="form-label">Durée souhaitée</label><div class="form-input" style="background:var(--bg2)">${d.duree || '—'}</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">Thème PFE</label><div class="form-input" style="background:var(--bg2)">${safeTheme}</div></div>
+    ${acad ? `<p class="text-xs text-muted mb12">${acad}</p>` : ''}
+    <div class="form-group"><label class="form-label">Lettre / message de motivation</label><div class="form-textarea" style="background:var(--bg2);min-height:200px;white-space:pre-wrap;line-height:1.6">${safeMsg}</div></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
+      ${d.status === 'pending' ? `
+        <button class="btn btn-cyan btn-sm" onclick="closeOverlay('demandeModal');openAcceptDemandeModal(${d.id})">✓ Accepter</button>
+        <button class="btn btn-danger btn-sm" onclick="closeOverlay('demandeModal');refuserDemandeById(${d.id})">Refuser</button>
+      ` : ''}
+    </div>`;
+  modal.classList.add('open');
+}
+
 async function submitDemande(companyName){
   const u = etu();
   const theme = document.getElementById('demandeTheme')?.value.trim() || u.theme;

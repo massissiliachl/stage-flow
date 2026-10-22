@@ -415,9 +415,7 @@ ${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEnt
             <td style="max-width:200px">${d.theme}</td>
             <td class="text-sm">${d.status==='accepted' && d.encadrant && d.encadrant!=='—' ? d.encadrant : '—'}</td>
             <td>${d.date}</td>
-            <td>${d.status==='pending'
-              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="openAcceptDemandeModal(${d.id})">✓ Accepter</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
-              : statusPill(d.status)}</td>
+            <td>${`<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="openEntrepriseDemandeView(${d.id})">👁 Lire</button>${d.status==='pending' ? `<button class="btn btn-success btn-sm" onclick="openAcceptDemandeModal(${d.id})">✓ Accepter</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button>` : statusPill(d.status)}</div>`}</td>
           </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Aucune demande reçue pour le moment</td></tr>'}
         </tbody>
       </table>
@@ -460,13 +458,16 @@ ${(()=>{ const myDemandes = typeof getEntrepriseDemandes === 'function' ? getEnt
             <td class="text-sm">${d.status==='accepted' && d.encadrant && d.encadrant!=='—' ? d.encadrant : (d.status==='pending' ? '<span class="text-muted">À désigner</span>' : '—')}</td>
             <td>${d.date}</td>
             <td>${statusPill(d.status)}</td>
-            <td>${d.status==='pending'
-              ? `<div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" title="Accepter et désigner l'encadrant" onclick="openAcceptDemandeModal(${d.id})">✓</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button></div>`
+            <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="openEntrepriseDemandeView(${d.id})">👁 Lire</button>
+              ${d.status==='pending'
+              ? `<button class="btn btn-success btn-sm" title="Accepter et désigner l'encadrant" onclick="openAcceptDemandeModal(${d.id})">✓</button><button class="btn btn-danger btn-sm" onclick="refuserDemandeById(${d.id})">✕</button>`
               : d.status==='accepted'
                 ? (()=>{ const c = conventions.find(function(x) { return x.fromDb && (x.etudiant || '') === (d.studentName || '') && (typeof belongsToCurrentEntreprise === 'function' ? belongsToCurrentEntreprise(x) : x.company === d.company); });
-                  return c ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${c.id})">Voir convention</button>` : `<span class="text-xs text-muted">Convention en cours…</span>`;
+                  return c ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${c.id})">Convention</button>` : `<span class="text-xs text-muted">Convention…</span>`;
                 })()
-                : '—'}</td>
+                : ''}
+            </div></td>
           </tr>`).join('');
         })()}
       </tbody>
