@@ -98,6 +98,8 @@ server.on('listening', () => {
   }
   const { startSupabaseWakeScheduler } = require('./lib/supabase-restore');
   startSupabaseWakeScheduler();
+  const { runStartupSchemaPatches } = require('./lib/schema-patches');
+  runStartupSchemaPatches();
 });
 
 server.on('error', (err) => {

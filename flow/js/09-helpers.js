@@ -287,6 +287,32 @@ function buildLettreEnvoiCourte(u, companyName){
   return `Madame, Monsieur,\n\nJe suis ${u.name}${formatStudentGroupShort(u) ? ' (' + formatStudentGroupShort(u) + ')' : ''}, étudiant(e) en ${u.specialty||'spécialité non précisée'} à ${u.university||'mon université'}. Je sollicite un stage de fin d'études chez ${companyName} dans le cadre de mon PFE portant sur : « ${u.theme||'thème à préciser'} ».\n\nDans l'attente de votre retour favorable, je vous prie d'agréer mes salutations distinguées.`;
 }
 
+function buildDemandeMotivationFallback(d) {
+  const name = d.studentLabel || d.studentName || 'Étudiant(e)';
+  const company = d.company || 'votre entreprise';
+  const theme = d.theme || '—';
+  const lines = [
+    'Madame, Monsieur,',
+    '',
+    'Je suis ' + name + ', et je sollicite un stage de fin d\'études au sein de ' + company + '.',
+    '',
+    'Thème proposé : « ' + theme + ' ».',
+    'Durée souhaitée : ' + (d.duree || '2 mois') + '.',
+  ];
+  if (d.faculte) lines.push('Faculté : ' + d.faculte + '.');
+  if (d.departement) lines.push('Spécialité / département : ' + d.departement + '.');
+  lines.push('', 'Cordialement,', name);
+  return lines.join('\n');
+}
+
+function resolveDemandeMotivationText(d) {
+  const msg = String(d.message || '').trim();
+  if (msg) return msg;
+  const cached = typeof sharedData !== 'undefined' && sharedData.demandeStates && sharedData.demandeStates[d.id];
+  if (cached && String(cached.message || '').trim()) return String(cached.message).trim();
+  return buildDemandeMotivationFallback(d);
+}
+
 function openEntrepriseDemandeView(demandeId) {
   const d = demandes.find(function(x) { return x.id === demandeId; });
   if (!d) {
@@ -302,7 +328,9 @@ function openEntrepriseDemandeView(demandeId) {
   }
   const label = d.studentLabel || d.studentName || 'Étudiant(e)';
   if (title) title.textContent = '📩 Candidature — ' + label;
-  const safeMsg = String(d.message || 'Aucun message de motivation enregistré pour cette candidature.')
+  const motivationRaw = resolveDemandeMotivationText(d);
+  const fromFallback = !String(d.message || '').trim();
+  const safeMsg = String(motivationRaw)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -316,6 +344,7 @@ function openEntrepriseDemandeView(demandeId) {
     </div>
     <div class="form-group"><label class="form-label">Thème PFE</label><div class="form-input" style="background:var(--bg2)">${safeTheme}</div></div>
     ${acad ? `<p class="text-xs text-muted mb12">${acad}</p>` : ''}
+    ${fromFallback ? '<p class="text-xs text-muted mb8">Le message original n\'était pas archivé en base — texte reconstitué à partir de la candidature. Les prochains envois incluront le message complet.</p>' : ''}
     <div class="form-group"><label class="form-label">Lettre / message de motivation</label><div class="form-textarea" style="background:var(--bg2);min-height:200px;white-space:pre-wrap;line-height:1.6">${safeMsg}</div></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>

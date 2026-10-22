@@ -89,7 +89,14 @@ function applySharedDataToModel(){
   });
   demandes.forEach(d=>{
     const s = sharedData.demandeStates[d.id];
-    if(s && s.status) d.status = s.status;
+    if (!s) return;
+    if (s.status) d.status = s.status;
+    if (s.message && !d.message) d.message = s.message;
+    if (s.theme && !d.theme) d.theme = s.theme;
+    if (s.duree && !d.duree) d.duree = s.duree;
+    if (s.studentLabel && !d.studentLabel) d.studentLabel = s.studentLabel;
+    if (s.faculte && !d.faculte) d.faculte = s.faculte;
+    if (s.departement && !d.departement) d.departement = s.departement;
   });
   // Applique les notes attribuées par les étudiants aux entreprises (moyenne avec la note de base)
   companies.forEach(c=>{
@@ -190,7 +197,15 @@ async function persistConventionArchive(conventionId) {
 async function persistDemandeState(demandeId){
   const d = demandes.find(x=>x.id===demandeId);
   if(!d) return;
-  sharedData.demandeStates[demandeId] = { status: d.status };
+  sharedData.demandeStates[demandeId] = {
+    status: d.status,
+    message: d.message || '',
+    theme: d.theme || '',
+    duree: d.duree || '',
+    studentLabel: d.studentLabel || d.studentName || '',
+    faculte: d.faculte || '',
+    departement: d.departement || '',
+  };
   await persistSharedData();
 }
 
