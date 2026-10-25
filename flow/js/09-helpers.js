@@ -270,10 +270,10 @@ function openDemande(id,name){
   document.getElementById('demandeModalContent').innerHTML = `
     <div class="form-group"><label class="form-label">Thème proposé</label><input id="demandeTheme" class="form-input" value="${u.theme || ''}"></div>
     <div class="form-group"><label class="form-label">Durée souhaitée</label><input id="demandeDuree" class="form-input" value="${u.periode || '2 mois'}"></div>
-    <div class="form-group"><label class="form-label">Message de motivation</label><textarea id="demandeMessage" class="form-textarea" placeholder="Vos motivations...">${buildLettreMotivationComplete(u, state.currentCompanyName, { theme: u.theme || '', duree: u.periode || '2 mois' })}</textarea></div>
+    <div class="form-group"><label class="form-label">Message de motivation</label><textarea id="demandeMessage" class="form-textarea" placeholder="Vos motivations...">${buildLettreEnvoiCourte(u, name)}</textarea></div>
     <div class="sign-info-box">
       <span style="font-size:16px;flex-shrink:0">📝</span>
-      <span>Le texte ci-dessus est <strong>exactement</strong> ce que l'entreprise recevra. Vous pouvez le modifier avant l'envoi (${formatStudentGroupLabel(u)}).</span>
+      <span>Une lettre d'envoi complète sera générée automatiquement à partir de votre profil (${formatStudentGroupLabel(u)}) et envoyée avec votre candidature.</span>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
@@ -282,31 +282,26 @@ function openDemande(id,name){
   document.getElementById('demandeModal').classList.add('open');
 }
 
-// Lettre de motivation envoyée telle quelle à l'entreprise (modifiable dans le formulaire)
-function buildLettreMotivationComplete(u, companyName, opts) {
-  opts = opts || {};
-  const theme = String(opts.theme || u.theme || 'thème à préciser').trim();
-  const duree = String(opts.duree || u.periode || '2 mois').trim();
-  const groupShort = formatStudentGroupShort(u);
-  const acad = [u.faculte, u.departement || u.dept].filter(Boolean).join(' · ');
-  const who = formatStudentGroupLabel(u) || u.name;
+// Génère une lettre d'envoi courte (aperçu dans le formulaire de candidature)
+function buildLettreEnvoiCourte(u, companyName){
+  return `Madame, Monsieur,\n\nJe suis ${u.name}${formatStudentGroupShort(u) ? ' (' + formatStudentGroupShort(u) + ')' : ''}, étudiant(e) en ${u.specialty||'spécialité non précisée'} à ${u.university||'mon université'}. Je sollicite un stage de fin d'études chez ${companyName} dans le cadre de mon PFE portant sur : « ${u.theme||'thème à préciser'} ».\n\nDans l'attente de votre retour favorable, je vous prie d'agréer mes salutations distinguées.`;
+}
+
+function buildDemandeMotivationFallback(d) {
+  const name = d.studentLabel || d.studentName || 'Étudiant(e)';
+  const company = d.company || 'votre entreprise';
+  const theme = d.theme || '—';
   const lines = [
     'Madame, Monsieur,',
     '',
-    'Je suis ' + who + (groupShort ? ' (' + groupShort + ')' : '') + ', étudiant(e) en ' + (u.specialty || 'spécialité non précisée') +
-      (acad ? ' — ' + acad : '') + ' à ' + (u.university || 'mon université') + '.',
+    'Je suis ' + name + ', et je sollicite un stage de fin d\'études au sein de ' + company + '.',
     '',
-    'Je sollicite un stage de fin d\'études d\'une durée de ' + duree + ' au sein de ' + companyName +
-      ', dans le cadre de mon Projet de Fin d\'Études (PFE) intitulé : « ' + theme + ' ».',
-    '',
-    'Mon parcours académique et mon intérêt pour votre secteur me motivent à rejoindre votre équipe afin de mettre en pratique mes compétences et contribuer à vos projets.',
-    '',
-    'Je reste à votre disposition pour un entretien et vous remercie par avance de l\'attention portée à ma candidature.',
-    '',
-    'Veuillez agréer, Madame, Monsieur, l\'expression de mes salutations distinguées.',
-    '',
-    who,
+    'Thème proposé : « ' + theme + ' ».',
+    'Durée souhaitée : ' + (d.duree || '2 mois') + '.',
   ];
+  if (d.faculte) lines.push('Faculté : ' + d.faculte + '.');
+  if (d.departement) lines.push('Spécialité / département : ' + d.departement + '.');
+  lines.push('', 'Cordialement,', name);
   return lines.join('\n');
 }
 
@@ -315,7 +310,7 @@ function resolveDemandeMotivationText(d) {
   if (msg) return msg;
   const cached = typeof sharedData !== 'undefined' && sharedData.demandeStates && sharedData.demandeStates[d.id];
   if (cached && String(cached.message || '').trim()) return String(cached.message).trim();
-  return '';
+  return buildDemandeMotivationFallback(d);
 }
 
 function openEntrepriseDemandeView(demandeId) {
@@ -334,13 +329,11 @@ function openEntrepriseDemandeView(demandeId) {
   const label = d.studentLabel || d.studentName || 'Étudiant(e)';
   if (title) title.textContent = '📩 Candidature — ' + label;
   const motivationRaw = resolveDemandeMotivationText(d);
-  const missingArchived = !motivationRaw;
-  const safeMsg = missingArchived
-    ? ''
-    : String(motivationRaw)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+  const fromFallback = !String(d.message || '').trim();
+  const safeMsg = String(motivationRaw)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
   const safeTheme = String(d.theme || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const acad = [d.faculte, d.departement].filter(Boolean).join(' · ');
   content.innerHTML = `
@@ -351,7 +344,8 @@ function openEntrepriseDemandeView(demandeId) {
     </div>
     <div class="form-group"><label class="form-label">Thème PFE</label><div class="form-input" style="background:var(--bg2)">${safeTheme}</div></div>
     ${acad ? `<p class="text-xs text-muted mb12">${acad}</p>` : ''}
-    <div class="form-group"><label class="form-label">Lettre / message de motivation</label><div class="form-textarea" style="background:var(--bg2);min-height:200px;white-space:pre-wrap;line-height:1.6">${missingArchived ? '—' : safeMsg}</div></div>
+    ${fromFallback ? '<p class="text-xs text-muted mb8">Le message original n\'était pas archivé en base — texte reconstitué à partir de la candidature. Les prochains envois incluront le message complet.</p>' : ''}
+    <div class="form-group"><label class="form-label">Lettre / message de motivation</label><div class="form-textarea" style="background:var(--bg2);min-height:200px;white-space:pre-wrap;line-height:1.6">${safeMsg}</div></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Fermer</button>
       ${d.status === 'pending' ? `
@@ -365,11 +359,7 @@ function openEntrepriseDemandeView(demandeId) {
 async function submitDemande(companyName){
   const u = etu();
   const theme = document.getElementById('demandeTheme')?.value.trim() || u.theme;
-  const duree = document.getElementById('demandeDuree')?.value.trim() || '2 mois';
-  let message = document.getElementById('demandeMessage')?.value.trim();
-  if (!message) {
-    message = buildLettreMotivationComplete(u, companyName, { theme, duree });
-  }
+  const message = document.getElementById('demandeMessage')?.value.trim();
   const entId = state.currentCompanyId;
 
   if (!entId) {
@@ -384,6 +374,8 @@ async function submitDemande(companyName){
     showToast('🔒 Convention signée (entreprise + université) — un seul stage autorisé');
     return;
   }
+
+  const duree = document.getElementById('demandeDuree')?.value.trim() || '2 mois';
 
   try {
     const data = await apiJson('/api/demandes', {

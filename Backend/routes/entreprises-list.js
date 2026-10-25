@@ -13,7 +13,6 @@ const {
   createOrUpdateConventionForDemand,
   ensureConventionsForStudent,
 } = require('../lib/convention-service');
-const { ensureStageDemandMessageColumn } = require('../lib/schema-patches');
 const {
   queryConventions,
   updateConventionSign,
@@ -171,33 +170,17 @@ async function insertStageDemandRow(pool, payload) {
     },
   ];
 
-  await ensureStageDemandMessageColumn(pool);
-
   let sid = studentUserId;
   let lastErr;
   for (const attempt of attempts) {
-    let fkRetried = false;
-    for (;;) {
-      try {
-        const result = await attempt.run(sid);
-        const row = result.rows[0];
-        if (messageTrim) {
-          await pool.query(
-            'UPDATE stage_demands SET message = $2 WHERE id = $1',
-            [row.id, messageTrim]
-          );
-          row.message = messageTrim;
-        }
-        return row;
-      } catch (err) {
-        lastErr = err;
-        console.warn(`Insert demande (${attempt.name}) — échec:`, err.message);
-        if (err.code === '23503' && sid && !fkRetried) {
-          sid = null;
-          fkRetried = true;
-          continue;
-        }
-        break;
+    try {
+      const result = await attempt.run(sid);
+      return result.rows[0];
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Insert demande (${attempt.name}) — échec:`, err.message);
+      if (err.code === '23503' && sid) {
+        sid = null;
       }
     }
   }
@@ -535,26 +518,13 @@ demandesRouter.get('/', async (req, res) => {
   }
   try {
     const pool = getPool();
-    await ensureStageDemandMessageColumn(pool);
-    let result;
-    try {
-      result = await pool.query(
-        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree, faculte, departement, message
-         FROM stage_demands
-         WHERE student_name = $1
-         ORDER BY demand_date DESC NULLS LAST, id DESC`,
-        [studentName]
-      );
-    } catch (err) {
-      if (err.code !== '42703') throw err;
-      result = await pool.query(
-        `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree, faculte, departement
-         FROM stage_demands
-         WHERE student_name = $1
-         ORDER BY demand_date DESC NULLS LAST, id DESC`,
-        [studentName]
-      );
-    }
+    const result = await pool.query(
+      `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree, faculte, departement
+       FROM stage_demands
+       WHERE student_name = $1
+       ORDER BY demand_date DESC NULLS LAST, id DESC`,
+      [studentName]
+    );
     res.json({
       demandes: result.rows.map((row) => ({
         ...mapDemandeRow(row),
