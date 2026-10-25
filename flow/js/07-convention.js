@@ -157,55 +157,64 @@ function buildConventionPdfHtml(convId, forPdf) {
       </div>
 
       <div class="pdf-section">
-        <h4>Article 1 — Les parties contractantes <span style="font-weight:400;font-size:10px">(Art. 4 du Décret 13-306)</span></h4>
+        <h4>Données relatives à l'étudiant et à l'organisme d'accueil</h4>
         <div class="pdf-field"><label>Établissement :</label><div class="val">${f.universiteNom}</div></div>
         <div class="pdf-field"><label>Faculté / Département :</label><div class="val">${f.faculteLabel} — ${f.deptLabel}</div></div>
         <div class="pdf-field"><label>Représenté par :</label><div class="val">Pr. Soualmia Abderrahmane — Doyen ${f.faculteLabel}</div></div>
         ${entLegalBlock}
-      </div>
-
-      <div class="pdf-section">
-        <h4>Article 2 — Stagiaire(s) <span style="font-weight:400;font-size:10px">(Art. 3 du Décret 13-306)</span></h4>
         <div class="pdf-field"><label>Nom et prénom :</label><div class="val">${String(f.etudiantNom || '').toUpperCase()}</div></div>
         ${studentGroup.groupType !== 'solo' ? `<div class="pdf-field"><label>Modalité PFE :</label><div class="val">${groupTypeLabel(studentGroup.groupType)}</div></div>` : ''}
         ${groupMembersHtml}
         <div class="pdf-field"><label>Niveau / Spécialité :</label><div class="val">${f.specialite}</div></div>
         <div class="pdf-field"><label>N° matricule :</label><div class="val">${f.matricule}</div></div>
         <div class="pdf-field"><label>Email universitaire :</label><div class="val">${f.emailEtu}</div></div>
-      </div>
-
-      <div class="pdf-section">
-        <h4>Article 3 — Objet et durée du stage <span style="font-weight:400;font-size:10px">(Art. 5 et 6 du Décret 13-306)</span></h4>
         <div class="pdf-field"><label>Thème du PFE :</label><div class="val">${f.theme}</div></div>
         <div class="pdf-field"><label>Période :</label><div class="val">${f.periode}</div></div>
         <div class="pdf-field"><label>Encadrant entreprise :</label><div class="val">${encadrantEnt}</div></div>
         <div class="pdf-field"><label>Encadrant universitaire :</label><div class="val">${encadrantUniv}</div></div>
-        <p style="font-size:11px;color:#555;margin-top:6px;line-height:1.6">Conformément à l'article 5 du Décret exécutif n° 13-306, la durée du stage ne peut excéder six (6) mois par année universitaire.</p>
+      </div>
+
+      <p style="font-size:12px;font-weight:600;margin:18px 0 10px;text-align:center;color:#333">Il a été arrêté et convenu ce qui suit :</p>
+
+      <div class="pdf-section">
+        <h4>Article 1 : Objet</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">La présente convention a pour objet de définir les conditions de prise en charge au sein de l'entreprise <strong>${f.company}</strong>, d'étudiants de l'université pour l'accomplissement de stage pratique avec élaboration par chaque étudiant, en fin de formation, d'un rapport de stage.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">Le nom de l'étudiant, la durée, les secteurs de l'entreprise dans lesquels s'effectuera le stage ainsi que le personnel d'encadrement, sont définis dans la partie réservée aux données relatives à l'étudiant.</p>
       </div>
 
       <div class="pdf-section">
-        <h4>Article 4 — Conditions d'accueil <span style="font-weight:400;font-size:10px">(Art. 7 et 8 du Décret 13-306)</span></h4>
-        <p style="font-size:12px;color:#444;line-height:1.7">L'organisme d'accueil s'engage à mettre à la disposition du (des) stagiaire(s) les équipements et ressources nécessaires à la réalisation du projet. Un tuteur professionnel est désigné au sein de l'entreprise pour assurer le suivi de l'étudiant(e) conformément à l'article 7 du présent décret.</p>
+        <h4>Article 2 : But du stage</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">Le stage de formation a pour but essentiel d'assurer l'illustration ou l'application pratique de l'enseignement dispensé à l'université, en faisant participer l'étudiant à un travail dans l'entreprise.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">L'organisation du stage est établie par le chef d'entreprise (ou son représentant) en accord avec le responsable pédagogique, en fonction du programme des études poursuivies.</p>
       </div>
 
       <div class="pdf-section">
-        <h4>Article 5 — Obligations du stagiaire <span style="font-weight:400;font-size:10px">(Art. 9 du Décret 13-306)</span></h4>
-        <p style="font-size:12px;color:#444;line-height:1.7">Le (la) stagiaire est tenu(e) de respecter le règlement intérieur de l'organisme d'accueil, d'observer la confidentialité des informations auxquelles il (elle) a accès, d'effectuer le stage avec assiduité et de produire un rapport de stage final soumis à l'établissement d'enseignement supérieur à l'issue du stage.</p>
+        <h4>Article 3 : Statut de l'étudiant</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">Pendant son séjour à l'entreprise, l'étudiant stagiaire conserve son statut d'étudiant à l'université. Il pourra, notamment, participer à des activités pédagogiques liées à sa formation après en avoir prévenu le responsable du stage dans l'entreprise.</p>
       </div>
 
       <div class="pdf-section">
-        <h4>Article 6 — Obligations de l'établissement d'enseignement supérieur <span style="font-weight:400;font-size:10px">(Art. 10 du Décret 13-306)</span></h4>
-        <p style="font-size:12px;color:#444;line-height:1.7">L'université s'engage à désigner un encadrant pédagogique chargé du suivi du stage, à valider le rapport de stage, et à délivrer une attestation de stage à l'issue de la période. L'encadrant universitaire effectuera au moins une visite de suivi auprès de l'organisme d'accueil.</p>
+        <h4>Article 4 : Règlement et vie dans l'organisme d'accueil</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">Pendant son séjour à l'entreprise, l'étudiant est soumis aux droits et obligations du règlement intérieur de celle-ci, notamment en ce qui concerne la discipline, les visites médicales et horaires de travail, les règles de prévention, hygiène, sécurité du travail, et le secret professionnel éventuellement.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">En cas de manquement à la discipline, l'entreprise sera en droit de mettre fin au stage de l'étudiant fautif sans préjudice de poursuites judiciaires, après avoir prévenu le responsable pédagogique.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">Avant le départ de l'étudiant(e), le responsable de l'entreprise devra s'assurer que l'avertissement adressé à l'université a bien été reçu par cette dernière.</p>
       </div>
 
       <div class="pdf-section">
-        <h4>Article 7 — Protection sociale et couverture <span style="font-weight:400;font-size:10px">(Art. 12 du Décret 13-306)</span></h4>
-        <p style="font-size:12px;color:#444;line-height:1.7">Le (la) stagiaire conserve le bénéfice de la couverture sociale accordée en qualité d'étudiant(e) de l'enseignement supérieur. L'organisme d'accueil n'est pas tenu de rémunérer le stage, sauf dispositions particulières arrêtées entre les parties.</p>
+        <h4>Article 5 : Protection sociale du stagiaire</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">Pendant son séjour à l'entreprise, l'étudiant continue de bénéficier du régime d'assurance maladie étudiant, qui lui confère son statut, conformément à la législation relative aux assurances sociales.</p>
       </div>
 
       <div class="pdf-section">
-        <h4>Article 8 — Propriété intellectuelle et confidentialité</h4>
-        <p style="font-size:12px;color:#444;line-height:1.7">Les résultats et travaux produits dans le cadre de ce stage restent la propriété de l'université et de l'organisme d'accueil, selon les accords conclus entre les parties. Le (la) stagiaire s'engage à ne divulguer aucune information confidentielle relative à l'activité de l'organisme d'accueil.</p>
+        <h4>Article 6 : Responsabilité de l'étudiant et de l'organisme d'accueil</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">En cas d'accident survenu à l'étudiant, soit au cours du travail, soit au cours du trajet, l'entreprise s'engage à aviser rapidement l'université. Si l'accident a lieu pendant une période de fermeture de l'université, l'entreprise procédera elle-même à la déclaration de l'accident de travail dans les délais réglementaires auprès de la CNAS.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">Pour les risques qu'il encourt ou fait encourir à des tiers pendant la durée de son stage, l'étudiant est couvert par l'assurance « responsabilité civile générale » en vigueur au sein de l'entreprise.</p>
+      </div>
+
+      <div class="pdf-section">
+        <h4>Article 7 : Confidentialité, propriété intellectuelle, rapport de stage</h4>
+        <p style="font-size:12px;color:#444;line-height:1.7">Le responsable de l'enseignement peut demander au responsable du stage de l'entreprise une évaluation du comportement du stagiaire et de la qualité du travail effectué par celui-ci. Par ailleurs, le stage donne lieu à la rédaction d'un rapport de stage que l'étudiant doit remettre au responsable pédagogique, après l'avoir porté à la connaissance du responsable de stage. Ce rapport peut rester la propriété de l'entreprise dans le cas de la sauvegarde du secret industriel ; il sera cependant communiqué, pour une évaluation pédagogique, à des enseignants.</p>
+        <p style="font-size:12px;color:#444;line-height:1.7;margin-top:8px">La présente clause de confidentialité s'entend également à toute présentation orale de soutenance. Si l'étudiant en fait la demande, l'entreprise lui remettra un certificat indiquant la nature et la durée du stage accompli.</p>
       </div>
 
       <div class="pdf-sign-row" id="signRowPDF">

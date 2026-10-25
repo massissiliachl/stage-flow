@@ -37,6 +37,14 @@ const menus = {
   ]
 };
 
+function toggleAppSidebar() {
+  document.body.classList.toggle('sidebar-open');
+}
+
+function closeAppSidebar() {
+  document.body.classList.remove('sidebar-open');
+}
+
 function buildSidebar() {
   let items = menus[state.role];
   if(state.role==='universite' && state.user){
@@ -70,6 +78,7 @@ function scopeLabelHTML(){
 }
 
 function navigateTo(pageId) {
+  closeAppSidebar();
   state.currentPage = pageId;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const el = document.getElementById('nav-'+pageId);
