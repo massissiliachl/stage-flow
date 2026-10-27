@@ -1,6 +1,7 @@
 let cached = null;
 
 async function hasAdminVerificationColumns(pool) {
+  if (process.env.ADMIN_PLATFORM_ENABLED !== 'true') return false;
   if (cached !== null) return cached;
   try {
     const r = await pool.query(
