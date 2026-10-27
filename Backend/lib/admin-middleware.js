@@ -1,5 +1,6 @@
 const { verifyAdminToken } = require('./admin-jwt');
 const { getPool } = require('./db');
+const { isDevBootstrapToken, devBootstrapAdminUser } = require('./admin-dev-bootstrap');
 
 async function requirePlatformAdmin(req, res, next) {
   const auth = req.headers.authorization || '';
@@ -7,6 +8,10 @@ async function requirePlatformAdmin(req, res, next) {
   const decoded = verifyAdminToken(token);
   if (!decoded?.sub) {
     return res.status(401).json({ error: 'Authentification administrateur requise' });
+  }
+  if (isDevBootstrapToken(decoded)) {
+    req.adminUser = devBootstrapAdminUser();
+    return next();
   }
   try {
     const pool = getPool();

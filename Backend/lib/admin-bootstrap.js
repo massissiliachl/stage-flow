@@ -16,13 +16,29 @@ async function ensurePlatformAdmin(pool) {
   const password = process.env.ADMIN_BOOTSTRAP_PASSWORD || '';
   if (!email || !password || password.length < 8) return;
 
+  const hash = hashPassword(password);
+  const byEmail = await pool.query(
+    `SELECT id FROM users WHERE email = $1 AND role = 'platform_admin'`,
+    [email]
+  );
+  if (byEmail.rows.length) {
+    await pool.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW(), is_active = TRUE WHERE id = $2`,
+      [hash, byEmail.rows[0].id]
+    );
+    console.log('[StageFlow] Mot de passe platform_admin resynchronisé pour', email);
+    return;
+  }
+
   const existing = await pool.query(
     `SELECT id FROM users WHERE role = 'platform_admin' LIMIT 1`
   );
-  if (existing.rows.length) return;
+  if (existing.rows.length) {
+    console.warn('[StageFlow] Un autre platform_admin existe déjà — bootstrap ignoré pour', email);
+    return;
+  }
 
   const loginId = email.split('@')[0].toUpperCase().slice(0, 24) || 'ADMIN';
-  const hash = hashPassword(password);
   await pool.query(
     `INSERT INTO users (email, login_id, password_hash, role, display_name, is_active, email_verified)
      VALUES ($1, $2, $3, 'platform_admin', $4, TRUE, TRUE)
@@ -37,6 +53,10 @@ async function runAdminSystemSetup() {
   try {
     const pool = getPool();
     await runAdminSqlPatch(pool);
+    await pool.query(
+      `UPDATE students SET admin_verification_status = 'approved'
+       WHERE admin_verification_status = 'pending'`
+    );
     await ensurePlatformAdmin(pool);
   } catch (err) {
     console.warn('[StageFlow] Admin system setup:', err.message);

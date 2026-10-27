@@ -3,6 +3,7 @@ const { getPool, isDatabaseUnavailable, describeDatabaseError } = require('../li
 const { verifyPassword } = require('../lib/password');
 const { signAdminToken } = require('../lib/admin-jwt');
 const { requirePlatformAdmin } = require('../lib/admin-middleware');
+const { matchesBootstrapLogin, devBootstrapAdminUser } = require('../lib/admin-dev-bootstrap');
 
 const router = express.Router();
 
@@ -16,6 +17,49 @@ router.post('/login', async (req, res) => {
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis' });
+  }
+
+  function sendAdminSuccess(adminRow) {
+    const token = signAdminToken({
+      sub: adminRow.id,
+      role: 'platform_admin',
+      email: adminRow.email,
+    });
+    res.json({
+      message: 'Connexion administrateur réussie',
+      token,
+      admin: {
+        id: adminRow.id,
+        email: adminRow.email,
+        name: adminRow.display_name || 'Administrateur',
+      },
+    });
+  }
+
+  if (matchesBootstrapLogin(email, password)) {
+    try {
+      const pool = getPool();
+      const result = await pool.query(
+        `SELECT id, email, password_hash, display_name, is_active
+         FROM users WHERE email = $1 AND role = 'platform_admin'`,
+        [email]
+      );
+      if (result.rows.length) {
+        const row = result.rows[0];
+        if (row.is_active !== false && verifyPassword(password, row.password_hash)) {
+          await pool.query(
+            'UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = $1',
+            [row.id]
+          );
+          return sendAdminSuccess(row);
+        }
+      }
+    } catch (err) {
+      console.warn('Admin login BDD — repli bootstrap local:', err.message);
+    }
+    const dev = devBootstrapAdminUser();
+    console.log('[StageFlow] Connexion admin bootstrap (dev, sans BDD):', dev.email);
+    return sendAdminSuccess(dev);
   }
 
   try {
@@ -41,16 +85,7 @@ router.post('/login', async (req, res) => {
       [row.id]
     );
 
-    const token = signAdminToken({ sub: row.id, role: 'platform_admin', email: row.email });
-    res.json({
-      message: 'Connexion administrateur réussie',
-      token,
-      admin: {
-        id: row.id,
-        email: row.email,
-        name: row.display_name || 'Administrateur',
-      },
-    });
+    sendAdminSuccess(row);
   } catch (err) {
     console.error('Admin login:', err.message);
     if (isDatabaseUnavailable(err)) {

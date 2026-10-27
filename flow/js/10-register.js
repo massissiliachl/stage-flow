@@ -452,11 +452,6 @@ async function submitRegisterEtudiant(){
       startSharedSync();
       return;
     }
-    if (data.requiresAdminVerification) {
-      closeOverlay('studentLoginModal');
-      showToast('⏳ Inscription enregistrée — validation du matricule par StageFlow');
-      return;
-    }
     showEmailVerificationPending({
       email: data.email || email,
       role: 'etudiant',

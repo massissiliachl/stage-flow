@@ -146,13 +146,25 @@ async function submitStudentLogin(){
       });
       return;
     }
+    if (err.code === 'ADMIN_VERIFICATION_PENDING') {
+      showToast('⏳ ' + (err.message || 'Matricule en cours de validation par StageFlow'));
+      return;
+    }
+    if (err.code === 'ADMIN_VERIFICATION_REJECTED') {
+      showToast('❌ ' + (err.message || 'Inscription refusée par l\'administration'));
+      return;
+    }
+    if (err.message) {
+      showToast('❌ ' + err.message);
+      return;
+    }
     // repli comptes locaux (session navigateur)
   }
 
   const account = Object.values(registeredAccounts.etudiant).find(s=>s.matricule===matricule && s.password===password);
 
   if(!account){
-    showToast('❌ Matricule ou mot de passe incorrect — créez un compte si nécessaire');
+    showToast('❌ Matricule ou mot de passe incorrect — vérifiez le matricule et le mot de passe saisis à l\'inscription');
     return;
   }
 

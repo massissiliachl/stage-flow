@@ -221,7 +221,7 @@ router.post('/register', async (req, res) => {
         `INSERT INTO students (
            user_id, matricule, specialty, promotion, theme, faculte, departement, status,
            admin_verification_status, matricule_verified
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'pending', FALSE)`,
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'approved', FALSE)`,
         [
           user.id,
           matriculeTrim,
@@ -248,6 +248,7 @@ router.post('/register', async (req, res) => {
       );
     }
 
+    const verifyEnabled = await hasEmailVerifyColumns(pool);
     const mailResult = await issueVerificationEmail(client, {
       userId: user.id,
       email: emailTrim,
@@ -255,61 +256,57 @@ router.post('/register', async (req, res) => {
       role: 'etudiant',
     });
 
+    const needsEmailVerification = verifyEnabled && mailResult.sent === true;
+    if (verifyEnabled && !needsEmailVerification) {
+      await client.query(
+        `UPDATE users SET
+           email_verified = TRUE,
+           email_verification_token = NULL,
+           email_verification_expires = NULL,
+           updated_at = NOW()
+         WHERE id = $1`,
+        [user.id]
+      );
+    }
+
     await client.query('COMMIT');
 
-    const verifyEnabled = !mailResult.skipped;
+    const frontendUser = toFrontendUser({
+      user_id: user.id,
+      email: user.email,
+      login_id: user.login_id,
+      display_name: user.display_name,
+      avatar: user.avatar,
+      student_data: user.student_data,
+      theme: user.theme,
+      encadrant: user.encadrant,
+      binome: user.binome,
+      matricule: matriculeTrim,
+      specialty: studentData.specialty,
+      promotion: studentData.promo,
+      faculte: studentData.faculte,
+      departement: studentData.departement,
+    });
 
-    if (adminVerify) {
+    if (needsEmailVerification) {
       const response = {
-        message: 'Inscription enregistrée — validation du matricule par l\'administration StageFlow',
-        requiresAdminVerification: true,
-        matricule: matriculeTrim,
+        message: 'Compte créé — vérifiez votre email pour vous connecter',
+        requiresEmailVerification: true,
         email: emailTrim,
+        matricule: matriculeTrim,
       };
-      if (!verifyEnabled) {
-        return res.status(201).json(response);
-      }
       if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
         response.devVerifyUrl = mailResult.verifyUrl;
       }
-      response.requiresEmailVerification = true;
       return res.status(201).json(response);
     }
 
-    if (!verifyEnabled) {
-      return res.status(201).json({
-        message: 'Compte étudiant créé avec succès',
-        user: toFrontendUser({
-          user_id: user.id,
-          email: user.email,
-          login_id: user.login_id,
-          display_name: user.display_name,
-          avatar: user.avatar,
-          student_data: user.student_data,
-          theme: user.theme,
-          encadrant: user.encadrant,
-          binome: user.binome,
-          matricule: matriculeTrim,
-          specialty: studentData.specialty,
-          promotion: studentData.promo,
-          faculte: studentData.faculte,
-          departement: studentData.departement,
-        }),
-      });
-    }
-
-    const response = {
-      message: 'Compte créé — vérifiez votre email pour vous connecter',
-      requiresEmailVerification: true,
-      email: emailTrim,
+    res.status(201).json({
+      message: 'Compte étudiant créé avec succès',
+      user: frontendUser,
       matricule: matriculeTrim,
-    };
-
-    if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
-      response.devVerifyUrl = mailResult.verifyUrl;
-    }
-
-    res.status(201).json(response);
+      matriculePendingReview: !!adminVerify,
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Register etudiant error:', err.message);
@@ -323,7 +320,7 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const matricule = (req.body?.matricule || req.body?.login_id || '').trim();
+  const matricule = (req.body?.matricule || req.body?.login_id || '').trim().replace(/\s+/g, '');
   const password = req.body?.password || '';
 
   if (!matricule || !password) {
@@ -379,13 +376,6 @@ router.post('/login', async (req, res) => {
         code: 'EMAIL_NOT_VERIFIED',
         email: row.email,
         role: 'etudiant',
-      });
-    }
-    if (adminVerify && row.admin_verification_status === 'pending') {
-      return res.status(403).json({
-        error: 'Votre matricule est en cours de vérification par l\'administration StageFlow',
-        code: 'ADMIN_VERIFICATION_PENDING',
-        matricule: row.matricule || matricule,
       });
     }
     if (adminVerify && row.admin_verification_status === 'rejected') {

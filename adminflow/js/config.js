@@ -1,7 +1,7 @@
 (function () {
   const host = window.location.hostname;
   const isLocal = host === 'localhost' || host === '127.0.0.1';
-  const onApiHost = window.location.port === '3000' || (window.location.pathname || '').startsWith('/adminflow');
+  const onApiHost = window.location.port === '3000';
   if (onApiHost) {
     window.ADMIN_API_BASE = window.location.origin;
   } else if (isLocal) {
