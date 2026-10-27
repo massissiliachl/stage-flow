@@ -1,17 +1,11 @@
 // Entrée flow — entreprise
 (function flowRoleEntry(){
+  hideAccessGuardImmediate();
   hideLanding();
-  
+  ensureRoleEntryNav();
+  installRoleEntryCloseOverlay();
+
   window.closeUnivAuth = function(){ window.location.href = 'index.html'; };
-  var _closeOverlay = closeOverlay;
-  closeOverlay = function(id){
-    if (id === 'studentLoginModal' || id === 'companyLoginModal') {
-      _closeOverlay(id);
-      if (!state.role) window.location.href = 'index.html';
-      return;
-    }
-    _closeOverlay(id);
-  };
 
   window.logout = function(){ window.location.href = 'index.html'; };
   if (location.protocol === 'file:') {
@@ -20,13 +14,14 @@
     return;
   }
   window.showEntrepriseRegisterForm = function(){
-    _closeOverlay('companyLoginModal');
+    var m = document.getElementById('companyLoginModal');
+    if (m) m.classList.remove('open');
     openRegisterModal();
   };
-  if (new URLSearchParams(window.location.search).get('register')) {
-    openRegisterModal();
+  if (flowWantsRegister()) {
+    openRoleAuthOrHome(openRegisterModal);
   } else {
-    openCompanyLoginModal();
+    openRoleAuthOrHome(openCompanyLoginModal);
   }
   dismissAccessGuard();
   loadCompaniesFromDb().catch(function () {});

@@ -1,17 +1,11 @@
 // Entrée flow — etudiant
 (function flowRoleEntry(){
+  hideAccessGuardImmediate();
   hideLanding();
-  
+  ensureRoleEntryNav();
+  installRoleEntryCloseOverlay();
+
   window.closeUnivAuth = function(){ window.location.href = 'index.html'; };
-  var _closeOverlay = closeOverlay;
-  closeOverlay = function(id){
-    if (id === 'studentLoginModal' || id === 'companyLoginModal') {
-      _closeOverlay(id);
-      if (!state.role) window.location.href = 'index.html';
-      return;
-    }
-    _closeOverlay(id);
-  };
 
   window.logout = function(){ window.location.href = 'index.html'; };
   window.showStudentRegisterForm = function(){
@@ -23,10 +17,10 @@
     return;
   }
   function openAuthEntry() {
-    if (new URLSearchParams(window.location.search).get('register')) {
-      openStudentRegisterModal();
+    if (flowWantsRegister()) {
+      openRoleAuthOrHome(openStudentRegisterModal);
     } else {
-      openStudentLoginModal();
+      openRoleAuthOrHome(openStudentLoginModal);
     }
     dismissAccessGuard();
   }

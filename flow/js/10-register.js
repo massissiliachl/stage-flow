@@ -269,7 +269,7 @@ function renderRegForm(type){
         </div>
       </div>`;
   updateEntrepriseRegLogoPreview();
-  refreshDatabaseStatusBanner('reg_db_status');
+  setTimeout(function () { refreshDatabaseStatusBanner('reg_db_status'); }, 0);
 }
 
 function toggleBinomeFields(checked){
@@ -538,7 +538,9 @@ function showToast(msg){
 
 // Close on overlay click
 document.querySelectorAll('.modal-overlay').forEach(o=>{
-  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+  o.addEventListener('click',e=>{
+    if(e.target===o && o.id) closeOverlay(o.id);
+  });
 });
 document.getElementById('signModal').addEventListener('click',e=>{
   if(e.target===document.getElementById('signModal')) closeSignModal();

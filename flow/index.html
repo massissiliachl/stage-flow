@@ -432,6 +432,7 @@ function showLogin(role){
 function showRegister(role){
   const page = ROLE_PAGES[role];
   if (!page) return;
+  try { sessionStorage.setItem('sf_flow_register', '1'); } catch (e) {}
   window.location.href = page + '?register=1';
 }
 
