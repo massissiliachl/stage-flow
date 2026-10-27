@@ -452,6 +452,11 @@ async function submitRegisterEtudiant(){
       startSharedSync();
       return;
     }
+    if (data.requiresAdminVerification) {
+      closeOverlay('studentLoginModal');
+      showToast('⏳ Inscription enregistrée — validation du matricule par StageFlow');
+      return;
+    }
     showEmailVerificationPending({
       email: data.email || email,
       role: 'etudiant',
@@ -506,6 +511,10 @@ async function submitRegisterEntreprise(){
     }
 
     closeOverlay('registerModal');
+    if (data.requiresAdminVerification) {
+      showToast(`⏳ Dossier entreprise en vérification (NIF/NRC/NIS) — identifiant : ${data.identifiant}`);
+      return;
+    }
     showEmailVerificationPending({
       email: data.email || email,
       role: 'entreprise',

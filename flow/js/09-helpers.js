@@ -184,6 +184,60 @@ function rateCompany(companyId, value){
   });
 }
 
+function universityStudentSearchHaystack(s) {
+  return [
+    s.name, s.specialty, s.departement, s.faculte, s.company, s.theme, s.matricule, s.email
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function universityStudentIsPlaced(s) {
+  const st = String(s.status || '').toLowerCase();
+  if (['accepted', 'active', 'archived', 'signed'].includes(st)) return true;
+  const co = String(s.company || '').trim().toLowerCase();
+  return co.length > 0 && !co.includes('recherche');
+}
+
+function universityStudentIsSearching(s) {
+  const co = String(s.company || '').trim().toLowerCase();
+  if (co.includes('recherche')) return true;
+  if (!co) return true;
+  const st = String(s.status || '').toLowerCase();
+  return st === 'pending' && !universityStudentIsPlaced(s);
+}
+
+function universityStudentTableRowHTML(s, showDept) {
+  return `<tr>
+          <td><strong>${s.name}</strong></td>
+          <td>${s.specialty || '—'}</td>
+          ${showDept ? `<td class="text-xs">${s.departement || '—'}</td>` : ''}
+          <td>${s.company || '—'}</td>
+          <td>${statusPill(s.status)}</td>
+        </tr>`;
+}
+
+function filterUniversityStudents() {
+  const q = (document.getElementById('univStudentSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('univStudentStatusFilter')?.value || '';
+  const tbody = document.getElementById('univStudentTableBody');
+  if (!tbody || typeof filterByScope !== 'function' || typeof getUniversityStudents !== 'function') return;
+
+  const showDept = state.user && state.user.type !== 'departement';
+  const colSpan = showDept ? 5 : 4;
+  let list = filterByScope(getUniversityStudents(), state.user);
+
+  list = list.filter(function(s) {
+    if (q && !universityStudentSearchHaystack(s).includes(q)) return false;
+    if (statusFilter === 'placed') return universityStudentIsPlaced(s);
+    if (statusFilter === 'search') return universityStudentIsSearching(s);
+    if (statusFilter === 'pending') return String(s.status || '').toLowerCase() === 'pending';
+    return true;
+  });
+
+  tbody.innerHTML = list.length
+    ? list.map(function(s) { return universityStudentTableRowHTML(s, showDept); }).join('')
+    : `<tr><td colspan="${colSpan}" style="text-align:center;color:var(--text3);padding:24px">Aucun étudiant ne correspond à votre recherche</td></tr>`;
+}
+
 function filterCompanies(){
   const q = (document.getElementById('searchInput')?.value||'').toLowerCase().trim();
   const domain = document.getElementById('domainFilter')?.value || 'Tous les domaines';

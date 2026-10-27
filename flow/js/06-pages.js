@@ -730,12 +730,12 @@ ${(() => {
 ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.conventionGenerated && faculteMatches(state.user.faculte, n.faculte) && (state.user.type==='faculte' || departementMatches(state.user.departement, n.departement))).slice(-3).reverse();
   if(!recent.length) return '';
   return `
-<div class="card mb16" style="border-left:3px solid var(--success);background:rgba(0,196,140,0.05)">
+<div class="card mb16 convention-auto-card" style="border-left:3px solid var(--success)">
   ${recent.map(n=>`
-  <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px;${recent.length>1?'padding:8px 0;border-bottom:1px solid var(--border)':''}">
+  <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px;${recent.length>1?'padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)':''}">
     <div>
-      <div class="text-sm" style="font-weight:600">📄 Convention créée automatiquement : ${n.studentLabel} × ${n.company}</div>
-      <div class="text-xs text-muted mt8">${n.conventionReference || (n.generatedConventionId ? 'SF-2026-0'+(n.generatedConventionId+46) : '—')} · ${n.theme} · Encadrant : ${n.encadrantEntreprise || '—'}</div>
+      <div class="conv-auto-title">📄 Convention créée automatiquement : ${n.studentLabel} × ${n.company}</div>
+      <div class="conv-auto-meta">${n.conventionReference || (n.generatedConventionId ? 'SF-2026-0'+(n.generatedConventionId+46) : '—')} · ${n.theme} · Encadrant : ${n.encadrantEntreprise || '—'}</div>
     </div>
     ${n.generatedConventionId ? `<button class="btn btn-cyan btn-sm" onclick="openConventionById(${n.generatedConventionId})">Voir la convention</button>` : ''}
   </div>`).join('')}
@@ -815,13 +815,13 @@ ${(()=>{ const recent = (sharedData.universityNotifications||[]).filter(n=> n.co
 </div>
 <div class="card">
   <div class="search-bar mb16">
-    <div class="search-input-wrap"><span class="search-icon-pos">🔍</span><input class="search-input" placeholder="Rechercher un étudiant..."></div>
-    <select class="filter-select"><option>Tous les statuts</option><option>Placé</option><option>En recherche</option></select>
+    <div class="search-input-wrap"><span class="search-icon-pos">🔍</span><input class="search-input" id="univStudentSearch" placeholder="Rechercher un étudiant..." oninput="filterUniversityStudents()"></div>
+    <select class="filter-select" id="univStudentStatusFilter" onchange="filterUniversityStudents()"><option value="">Tous les statuts</option><option value="placed">Placé / actif</option><option value="search">En recherche</option><option value="pending">En attente</option></select>
   </div>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Étudiant(e)</th><th>Spécialité</th>${state.user.type!=='departement'?'<th>Département</th>':''}<th>Entreprise</th><th>Statut</th></tr></thead>
-      <tbody>
+      <tbody id="univStudentTableBody">
         ${filterByScope(getUniversityStudents(),state.user).map(s=>`<tr>
           <td><strong>${s.name}</strong></td>
           <td>${s.specialty}</td>

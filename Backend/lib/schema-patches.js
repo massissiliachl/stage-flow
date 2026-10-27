@@ -16,6 +16,8 @@ async function runStartupSchemaPatches() {
     const { getPool } = require('./db');
     const pool = getPool();
     await ensureStageDemandMessageColumn(pool);
+    const { runAdminSystemSetup } = require('./admin-bootstrap');
+    await runAdminSystemSetup();
   } catch (err) {
     console.warn('[StageFlow] Patches schéma au démarrage:', err.message);
   }

@@ -3,6 +3,7 @@ const { getPool, isDatabaseUnavailable, describeDatabaseError } = require('../li
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
+const { hasAdminVerificationColumns } = require('../lib/admin-verification-db');
 const { sanitizeEntrepriseLogoImage } = require('../lib/entreprise-logo');
 
 const router = express.Router();
@@ -148,27 +149,51 @@ router.post('/register', async (req, res) => {
     if (encadrant) logo.encadrant_stage = encadrant.trim();
     if (logoImageSafe) logo.imageDataUrl = logoImageSafe;
 
-    const entrepriseResult = await client.query(
-      `INSERT INTO entreprises (
-         nom, domaine, secteur, wilaya, adresse, phone, email_contact,
-         nif, nrc, nis, identifiant, logo, offres
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0)
-       RETURNING id, nom, secteur, wilaya, adresse, phone, email_contact, nif, nrc, nis, identifiant`,
-      [
-        nomTrim,
-        'Commerce & Distribution',
-        (secteur || 'À définir').trim(),
-        (wilaya || 'Béjaïa').trim(),
-        adresseTrim,
-        phoneTrim,
-        emailTrim,
-        nifNorm,
-        nrcNorm,
-        nisNorm || null,
-        identifiant,
-        Object.keys(logo).length ? JSON.stringify(logo) : null,
-      ]
-    );
+    const adminVerify = await hasAdminVerificationColumns(pool);
+    const entrepriseResult = adminVerify
+      ? await client.query(
+          `INSERT INTO entreprises (
+             nom, domaine, secteur, wilaya, adresse, phone, email_contact,
+             nif, nrc, nis, identifiant, logo, offres,
+             admin_verification_status, nif_verified, nis_verified, nrc_verified
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, 'pending', FALSE, FALSE, FALSE)
+           RETURNING id, nom, secteur, wilaya, adresse, phone, email_contact, nif, nrc, nis, identifiant`,
+          [
+            nomTrim,
+            'Commerce & Distribution',
+            (secteur || 'À définir').trim(),
+            (wilaya || 'Béjaïa').trim(),
+            adresseTrim,
+            phoneTrim,
+            emailTrim,
+            nifNorm,
+            nrcNorm,
+            nisNorm || null,
+            identifiant,
+            Object.keys(logo).length ? JSON.stringify(logo) : null,
+          ]
+        )
+      : await client.query(
+          `INSERT INTO entreprises (
+             nom, domaine, secteur, wilaya, adresse, phone, email_contact,
+             nif, nrc, nis, identifiant, logo, offres
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0)
+           RETURNING id, nom, secteur, wilaya, adresse, phone, email_contact, nif, nrc, nis, identifiant`,
+          [
+            nomTrim,
+            'Commerce & Distribution',
+            (secteur || 'À définir').trim(),
+            (wilaya || 'Béjaïa').trim(),
+            adresseTrim,
+            phoneTrim,
+            emailTrim,
+            nifNorm,
+            nrcNorm,
+            nisNorm || null,
+            identifiant,
+            Object.keys(logo).length ? JSON.stringify(logo) : null,
+          ]
+        );
 
     const entreprise = entrepriseResult.rows[0];
     const passwordHash = hashPassword(password);
@@ -204,6 +229,23 @@ router.post('/register', async (req, res) => {
     await client.query('COMMIT');
 
     const verifyEnabled = !mailResult.skipped;
+
+    if (adminVerify) {
+      const response = {
+        message: 'Inscription enregistrée — validation administrateur en cours (NIF / NRC / NIS)',
+        requiresAdminVerification: true,
+        identifiant,
+        email: emailTrim,
+      };
+      if (!verifyEnabled) {
+        return res.status(201).json(response);
+      }
+      if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
+        response.devVerifyUrl = mailResult.verifyUrl;
+      }
+      response.requiresEmailVerification = true;
+      return res.status(201).json(response);
+    }
 
     if (!verifyEnabled) {
       return res.status(201).json({
@@ -281,7 +323,11 @@ router.post('/login', async (req, res) => {
   try {
     const pool = getPool();
     const verifyEnabled = await hasEmailVerifyColumns(pool);
+    const adminVerify = await hasAdminVerificationColumns(pool);
     const emailVerifiedSelect = verifyEnabled ? 'u.email_verified,' : 'TRUE AS email_verified,';
+    const adminStatusSelect = adminVerify
+      ? 'e.admin_verification_status, e.admin_rejection_reason,'
+      : `'approved' AS admin_verification_status, NULL AS admin_rejection_reason,`;
 
     const result = await pool.query(
       `SELECT
@@ -295,6 +341,7 @@ router.post('/login', async (req, res) => {
          u.phone,
          u.is_active,
          ${emailVerifiedSelect}
+         ${adminStatusSelect}
          e.id AS entreprise_id,
          e.nom AS entreprise_nom,
          e.secteur,
@@ -327,6 +374,21 @@ router.post('/login', async (req, res) => {
         code: 'EMAIL_NOT_VERIFIED',
         email: row.email,
         role: 'entreprise',
+        identifiant: row.login_id,
+      });
+    }
+
+    if (adminVerify && row.admin_verification_status === 'pending') {
+      return res.status(403).json({
+        error: 'Votre dossier entreprise est en cours de vérification (NIF, NRC, NIS) par l\'administration StageFlow',
+        code: 'ADMIN_VERIFICATION_PENDING',
+        identifiant: row.login_id,
+      });
+    }
+    if (adminVerify && row.admin_verification_status === 'rejected') {
+      return res.status(403).json({
+        error: row.admin_rejection_reason || 'Inscription entreprise refusée par l\'administration',
+        code: 'ADMIN_VERIFICATION_REJECTED',
         identifiant: row.login_id,
       });
     }

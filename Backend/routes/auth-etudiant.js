@@ -3,6 +3,7 @@ const { getPool } = require('../lib/db');
 const { hashPassword, verifyPassword } = require('../lib/password');
 const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
+const { hasAdminVerificationColumns } = require('../lib/admin-verification-db');
 const {
   listStudentUniversitiesMerged,
   isValidStudentFacultyMerged,
@@ -214,19 +215,38 @@ router.post('/register', async (req, res) => {
 
     const user = userResult.rows[0];
 
-    await client.query(
-      `INSERT INTO students (user_id, matricule, specialty, promotion, theme, faculte, departement, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
-      [
-        user.id,
-        matriculeTrim,
-        studentData.specialty || null,
-        studentData.promo || null,
-        studentData.theme || null,
-        studentData.faculte || null,
-        studentData.departement || null,
-      ]
-    );
+    const adminVerify = await hasAdminVerificationColumns(pool);
+    if (adminVerify) {
+      await client.query(
+        `INSERT INTO students (
+           user_id, matricule, specialty, promotion, theme, faculte, departement, status,
+           admin_verification_status, matricule_verified
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'pending', FALSE)`,
+        [
+          user.id,
+          matriculeTrim,
+          studentData.specialty || null,
+          studentData.promo || null,
+          studentData.theme || null,
+          studentData.faculte || null,
+          studentData.departement || null,
+        ]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO students (user_id, matricule, specialty, promotion, theme, faculte, departement, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')`,
+        [
+          user.id,
+          matriculeTrim,
+          studentData.specialty || null,
+          studentData.promo || null,
+          studentData.theme || null,
+          studentData.faculte || null,
+          studentData.departement || null,
+        ]
+      );
+    }
 
     const mailResult = await issueVerificationEmail(client, {
       userId: user.id,
@@ -238,6 +258,23 @@ router.post('/register', async (req, res) => {
     await client.query('COMMIT');
 
     const verifyEnabled = !mailResult.skipped;
+
+    if (adminVerify) {
+      const response = {
+        message: 'Inscription enregistrée — validation du matricule par l\'administration StageFlow',
+        requiresAdminVerification: true,
+        matricule: matriculeTrim,
+        email: emailTrim,
+      };
+      if (!verifyEnabled) {
+        return res.status(201).json(response);
+      }
+      if (mailResult.devMode && process.env.NODE_ENV !== 'production') {
+        response.devVerifyUrl = mailResult.verifyUrl;
+      }
+      response.requiresEmailVerification = true;
+      return res.status(201).json(response);
+    }
 
     if (!verifyEnabled) {
       return res.status(201).json({
@@ -296,7 +333,11 @@ router.post('/login', async (req, res) => {
   try {
     const pool = getPool();
     const verifyEnabled = await hasEmailVerifyColumns(pool);
+    const adminVerify = await hasAdminVerificationColumns(pool);
     const emailVerifiedSelect = verifyEnabled ? 'u.email_verified,' : 'TRUE AS email_verified,';
+    const adminStatusSelect = adminVerify
+      ? 's.admin_verification_status, s.admin_rejection_reason,'
+      : `'approved' AS admin_verification_status, NULL AS admin_rejection_reason,`;
 
     const result = await pool.query(
       `SELECT
@@ -312,6 +353,7 @@ router.post('/login', async (req, res) => {
          u.binome,
          u.is_active,
          ${emailVerifiedSelect}
+         ${adminStatusSelect}
          s.matricule,
          s.specialty,
          s.promotion,
@@ -337,6 +379,20 @@ router.post('/login', async (req, res) => {
         code: 'EMAIL_NOT_VERIFIED',
         email: row.email,
         role: 'etudiant',
+      });
+    }
+    if (adminVerify && row.admin_verification_status === 'pending') {
+      return res.status(403).json({
+        error: 'Votre matricule est en cours de vérification par l\'administration StageFlow',
+        code: 'ADMIN_VERIFICATION_PENDING',
+        matricule: row.matricule || matricule,
+      });
+    }
+    if (adminVerify && row.admin_verification_status === 'rejected') {
+      return res.status(403).json({
+        error: row.admin_rejection_reason || 'Inscription étudiant refusée par l\'administration',
+        code: 'ADMIN_VERIFICATION_REJECTED',
+        matricule: row.matricule || matricule,
       });
     }
     if (!verifyPassword(password, row.password_hash)) {

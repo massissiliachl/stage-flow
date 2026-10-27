@@ -2,6 +2,8 @@ require('dotenv').config({ quiet: true });
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +30,20 @@ app.use('/api/rapports', require('./routes/stage-reports').stageReportsRouter);
 app.use('/api/attestations', require('./routes/stage-attestations').stageAttestationsRouter);
 app.use('/api/stats', require('./routes/platform-stats'));
 app.use('/api/universities', require('./routes/universities-structure'));
+app.use('/api/admin/auth', require('./routes/auth-admin'));
+app.use('/api/admin', require('./routes/admin-platform'));
+
+const adminflowCandidates = [
+  path.join(__dirname, '..', '..', 'adminflow'),
+  path.join(__dirname, '..', 'adminflow'),
+];
+const adminflowStatic = adminflowCandidates.find((dir) =>
+  fs.existsSync(path.join(dir, 'index.html'))
+) || adminflowCandidates[0];
+app.use('/adminflow', express.static(adminflowStatic));
+app.get('/adminflow', (req, res) => {
+  res.sendFile(path.join(adminflowStatic, 'index.html'));
+});
 
 app.get('/', (req, res) => {
   res.json({
@@ -37,6 +53,11 @@ app.get('/', (req, res) => {
       register: 'POST /api/auth/entreprise/register',
       login: 'POST /api/auth/entreprise/login',
       ping: 'GET /api/auth/entreprise/ping',
+    },
+    admin: {
+      panel: '/adminflow',
+      login: 'POST /api/admin/auth/login',
+      stats: 'GET /api/admin/stats',
     },
     entreprise: {
       dashboard: 'GET /api/entreprise/:entrepriseId/dashboard',

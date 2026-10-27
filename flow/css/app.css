@@ -131,7 +131,20 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
 .page-header{margin-bottom:28px}
 .page-header h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
 .page-header p{font-size:14px;color:var(--text2)}
+/* Espace université : fond clair (lisibilité globale), en-têtes sur bandeau navy */
+#app.app-univ .page-header{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);
+  margin:-28px -32px 28px;
+  padding:22px 32px 24px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+#app.app-univ .page-header h2,
+#app.app-univ .page-header p{color:#fff}
+#app.app-univ .page-header p{opacity:.88;font-weight:400}
 .card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);padding:22px}
+.convention-auto-card{background:var(--navy2)!important;border-color:rgba(0,196,140,.35)!important}
+.convention-auto-card .conv-auto-title{color:#fff;font-size:13px;font-weight:600;line-height:1.45}
+.convention-auto-card .conv-auto-meta{color:rgba(255,255,255,.82);font-size:12px;margin-top:8px;line-height:1.45}
 .card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:16px}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
@@ -142,13 +155,13 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
 .stat-card .trend{font-size:11px;margin-top:8px;font-weight:500}
 .trend-up{color:var(--success)}
 
-.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
-.s-pending{background:#FFF3CD;color:#856404}
-.s-accepted{background:#D1FAE5;color:#065F46}
-.s-rejected{background:#FFE4E6;color:#9F1239}
-.s-active{background:#DBEAFE;color:#1E40AF}
-.s-signed{background:#EDE9FE;color:#4C1D95}
-.s-archived{background:#F3F4F6;color:#374151}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.02em;line-height:1.25}
+.s-pending{background:#B45309;color:#fff}
+.s-accepted{background:#047857;color:#fff}
+.s-rejected{background:#BE123C;color:#fff}
+.s-active{background:#1D4ED8;color:#fff}
+.s-signed{background:#6D28D9;color:#fff}
+.s-archived{background:#374151;color:#fff}
 
 .btn{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:9px 18px;border-radius:var(--r2);cursor:pointer;border:none;transition:.15s;display:inline-flex;align-items:center;gap:6px}
 .btn-sm{padding:6px 14px;font-size:12px}
