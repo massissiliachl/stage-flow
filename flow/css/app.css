@@ -131,16 +131,17 @@ html[dir="rtl"] .sign-modal-box{direction:rtl}
 .page-header{margin-bottom:28px}
 .page-header h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
 .page-header p{font-size:14px;color:var(--text2)}
-/* Espace université : fond clair (lisibilité globale), en-têtes sur bandeau navy */
-#app.app-univ .page-header{
+/* Espaces connectés (étudiant, entreprise, université) — zone claire + titres blancs sur bandeau navy */
+.role-direct-entry #app .main{background:var(--bg);color:var(--text)}
+.role-direct-entry #app .page-header{
   background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);
   margin:-28px -32px 28px;
   padding:22px 32px 24px;
   border-bottom:1px solid rgba(255,255,255,.08);
 }
-#app.app-univ .page-header h2,
-#app.app-univ .page-header p{color:#fff}
-#app.app-univ .page-header p{opacity:.88;font-weight:400}
+.role-direct-entry #app .page-header h2,
+.role-direct-entry #app .page-header p{color:#fff}
+.role-direct-entry #app .page-header p{opacity:.88;font-weight:400}
 .card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);padding:22px}
 .convention-auto-card{background:var(--navy2)!important;border-color:rgba(0,196,140,.35)!important}
 .convention-auto-card .conv-auto-title{color:#fff;font-size:13px;font-weight:600;line-height:1.45}
