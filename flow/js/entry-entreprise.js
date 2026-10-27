@@ -1,7 +1,5 @@
 // Entrée flow — entreprise
 (function flowRoleEntry(){
-  var guard = document.getElementById('accessGuard');
-  if (guard) guard.style.display = 'none';
   hideLanding();
   
   window.closeUnivAuth = function(){ window.location.href = 'index.html'; };
@@ -30,4 +28,6 @@
   } else {
     openCompanyLoginModal();
   }
+  dismissAccessGuard();
+  loadCompaniesFromDb().catch(function () {});
 })();

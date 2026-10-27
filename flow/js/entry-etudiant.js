@@ -1,7 +1,5 @@
 // Entrée flow — etudiant
 (function flowRoleEntry(){
-  var guard = document.getElementById('accessGuard');
-  if (guard) guard.style.display = 'none';
   hideLanding();
   
   window.closeUnivAuth = function(){ window.location.href = 'index.html'; };
@@ -24,11 +22,15 @@
     window.location.replace('https://stageflow-9775.onrender.com/' + page + location.search);
     return;
   }
-  loadCompaniesFromDb().finally(function(){
+  function openAuthEntry() {
     if (new URLSearchParams(window.location.search).get('register')) {
       openStudentRegisterModal();
     } else {
       openStudentLoginModal();
     }
-  });
+    dismissAccessGuard();
+  }
+
+  openAuthEntry();
+  loadCompaniesFromDb().catch(function () {});
 })();

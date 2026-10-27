@@ -1,7 +1,5 @@
 // Entrée flow — univ
 (function flowRoleEntry(){
-  var guard = document.getElementById('accessGuard');
-  if (guard) guard.style.display = 'none';
   hideLanding();
   
   window.closeUnivAuth = function(){ window.location.href = 'index.html'; };
@@ -25,4 +23,5 @@
   if (new URLSearchParams(window.location.search).get('register')) {
     switchAuthMode('register');
   }
+  dismissAccessGuard();
 })();
