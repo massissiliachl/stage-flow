@@ -10,11 +10,41 @@ const registeredAccounts = { etudiant:{}, entreprise:{} };
 const API_BASE = 'https://stage-flow-6rl5.onrender.com';
 const SUPABASE_DASHBOARD_URL = 'https://supabase.com/dashboard/project/oyhuelfsmtcicbnwjkha';
 
-async function apiJson(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
+function normalizeStudentMatricule(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[\s\u00A0\u202F\u2007]/g, '');
+}
+
+async function apiJson(path, options = {}, attempt = 0) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutMs = 45000;
+  const timer = controller
+    ? setTimeout(function() { controller.abort(); }, timeoutMs)
+    : null;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      ...options,
+      signal: controller ? controller.signal : undefined,
+    });
+  } catch (fetchErr) {
+    if (timer) clearTimeout(timer);
+    if (attempt < 1) {
+      await new Promise(function(r) { setTimeout(r, 2500); });
+      return apiJson(path, options, attempt + 1);
+    }
+    const err = new Error(
+      'Impossible de joindre le serveur (connexion mobile ou API en réveil). Réessayez dans 30 secondes.'
+    );
+    err.code = 'NETWORK_ERROR';
+    err.status = 0;
+    throw err;
+  }
+  if (timer) clearTimeout(timer);
+
   const raw = await res.text();
   let data = {};
   try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
@@ -30,6 +60,13 @@ async function apiJson(path, options = {}) {
     throw err;
   }
   return data;
+}
+
+/** Réveille l’API Render (1re requête mobile souvent lente). */
+async function warmApiForLogin() {
+  try {
+    await apiJson('/api/auth/etudiant/ping', {}, 0);
+  } catch (_) {}
 }
 
 /** Enregistre université / faculté en base pour l'inscription étudiant. */

@@ -11,6 +11,13 @@ const {
 
 const router = express.Router();
 
+/** Supprime espaces (y compris insécables) — claviers mobile. */
+function normalizeMatriculeInput(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[\s\u00A0\u202F\u2007]/g, '');
+}
+
 function buildAvatar(name) {
   return (name || '')
     .split(/\s+/)
@@ -125,7 +132,7 @@ router.post('/register', async (req, res) => {
 
   const nameTrim = (name || '').trim();
   const emailTrim = (email || '').trim().toLowerCase();
-  const matriculeTrim = (matricule || '').trim();
+  const matriculeTrim = normalizeMatriculeInput(matricule);
   const normalizedGroupType = ['solo', 'binome', 'quadrinome'].includes(groupType) ? groupType : 'solo';
   const groupCheck = normalizeGroupMembers(normalizedGroupType, groupMembers);
   if (groupCheck.error) {
@@ -320,8 +327,8 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const matricule = (req.body?.matricule || req.body?.login_id || '').trim().replace(/\s+/g, '');
-  const password = req.body?.password || '';
+  const matricule = normalizeMatriculeInput(req.body?.matricule || req.body?.login_id);
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
   if (!matricule || !password) {
     return res.status(400).json({ error: 'Matricule et mot de passe requis' });
@@ -358,12 +365,19 @@ router.post('/login', async (req, res) => {
          s.departement
        FROM users u
        LEFT JOIN students s ON s.user_id = u.id
-       WHERE u.role = 'etudiant' AND (u.login_id = $1 OR s.matricule = $1)`,
+       WHERE u.role = 'etudiant' AND (
+         u.login_id = $1 OR s.matricule = $1
+         OR regexp_replace(u.login_id, '[[:space:]]+', '', 'g') = $1
+         OR regexp_replace(s.matricule, '[[:space:]]+', '', 'g') = $1
+       )`,
       [matricule]
     );
 
     if (!result.rows.length) {
-      return res.status(401).json({ error: 'Matricule ou mot de passe incorrect' });
+      return res.status(401).json({
+        error: 'Matricule ou mot de passe incorrect',
+        code: 'LOGIN_FAILED',
+      });
     }
 
     const row = result.rows[0];

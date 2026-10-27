@@ -103,8 +103,8 @@ function openStudentLoginModal(){
   if (title) title.textContent = '🎓 Connexion Étudiant';
   document.getElementById('studentLoginModalContent').innerHTML = `
     <p class="auth-sub">Connectez-vous avec votre matricule et le mot de passe créés lors de votre inscription.</p>
-    <div class="form-group"><label class="form-label">N° matricule</label><input id="studentLoginMatricule" class="form-input" placeholder="Votre numéro de matricule"></div>
-    <div class="form-group"><label class="form-label">Mot de passe</label><input id="studentLoginPassword" type="password" class="form-input" placeholder="••••••••"></div>
+    <div class="form-group"><label class="form-label">N° matricule</label><input id="studentLoginMatricule" class="form-input" type="text" inputmode="numeric" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Votre numéro de matricule"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label><input id="studentLoginPassword" type="password" class="form-input" autocomplete="current-password" placeholder="••••••••"></div>
     <button class="btn btn-cyan w-full" onclick="submitStudentLogin()">Se connecter</button>
     <p class="text-sm text-muted" style="margin-top:14px;text-align:center">
       Pas encore de compte ?
@@ -114,8 +114,18 @@ function openStudentLoginModal(){
 }
 
 async function submitStudentLogin(){
-  const matricule = (document.getElementById('studentLoginMatricule').value||'').trim();
-  const password  = document.getElementById('studentLoginPassword').value||'';
+  const matricule = typeof normalizeStudentMatricule === 'function'
+    ? normalizeStudentMatricule(document.getElementById('studentLoginMatricule').value)
+    : (document.getElementById('studentLoginMatricule').value || '').trim();
+  const password  = document.getElementById('studentLoginPassword').value || '';
+
+  if (!matricule || !password) {
+    showToast('⚠️ Matricule et mot de passe requis');
+    return;
+  }
+
+  showToast('⏳ Connexion…');
+  if (typeof warmApiForLogin === 'function') await warmApiForLogin();
 
   try {
     const data = await apiJson('/api/auth/etudiant/login', {
@@ -154,14 +164,22 @@ async function submitStudentLogin(){
       showToast('❌ ' + (err.message || 'Inscription refusée par l\'administration'));
       return;
     }
+    if (err.code === 'NETWORK_ERROR' || err.status === 0) {
+      showToast('📡 ' + (err.message || 'Serveur injoignable — réessayez'));
+      return;
+    }
     if (err.message) {
       showToast('❌ ' + err.message);
       return;
     }
-    // repli comptes locaux (session navigateur)
+    showToast('❌ Connexion impossible — vérifiez le réseau et réessayez');
+    return;
   }
 
-  const account = Object.values(registeredAccounts.etudiant).find(s=>s.matricule===matricule && s.password===password);
+  const account = Object.values(registeredAccounts.etudiant).find(function(s) {
+    const m = typeof normalizeStudentMatricule === 'function' ? normalizeStudentMatricule(s.matricule) : s.matricule;
+    return m === matricule && s.password === password;
+  });
 
   if(!account){
     showToast('❌ Matricule ou mot de passe incorrect — vérifiez le matricule et le mot de passe saisis à l\'inscription');

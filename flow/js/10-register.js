@@ -287,7 +287,7 @@ function renderStudentRegisterForm(){
     <div style="background:var(--bg2);border-radius:var(--r2);padding:10px 14px;margin-bottom:14px;font-size:12px;font-weight:600;color:var(--text2)">👤 Identité</div>
     <div class="form-group"><label class="form-label">Nom complet *</label><input id="reg_stu_name" class="form-input" placeholder="Ex: Benali Amira"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">N° matricule *</label><input id="reg_stu_matricule" class="form-input" placeholder="Ex: 202433012345"></div>
+      <div class="form-group"><label class="form-label">N° matricule *</label><input id="reg_stu_matricule" class="form-input" type="text" inputmode="numeric" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Ex: 202433012345"></div>
       <div class="form-group"><label class="form-label">Email universitaire *</label><input id="reg_stu_email" class="form-input" type="email" placeholder="Ex: a.benali@univ-bejaia.dz"></div>
     </div>
 
@@ -394,7 +394,9 @@ function submitRegister(type){
 
 async function submitRegisterEtudiant(){
   const name = (document.getElementById('reg_stu_name')?.value || '').trim();
-  const matricule = (document.getElementById('reg_stu_matricule')?.value || '').trim();
+  const matricule = typeof normalizeStudentMatricule === 'function'
+    ? normalizeStudentMatricule(document.getElementById('reg_stu_matricule')?.value)
+    : (document.getElementById('reg_stu_matricule')?.value || '').trim();
   const email = (document.getElementById('reg_stu_email')?.value || '').trim().toLowerCase();
   const specialty = (document.getElementById('reg_stu_specialty')?.value || '').trim();
   const promo = (document.getElementById('reg_stu_promo')?.value || '').trim();
