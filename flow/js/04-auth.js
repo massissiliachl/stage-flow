@@ -540,7 +540,7 @@ function submitChildAccount(){
   }
   closeOverlay('childAccountModal');
   showToast(`✅ ${accountTypeLabels[childType]} "${orgName}" créé(e) avec succès`);
-  navigateTo('univ-comptes');
+  navigateTo('univ-dashboard');
 }
 
 // ──────────────────────────────────

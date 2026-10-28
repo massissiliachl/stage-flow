@@ -24,16 +24,16 @@ const menus = {
     { labelKey:'nav_univ_etudiants', id:'univ-etudiants', icon:'🎓' },
     { labelKey:'nav_univ_entreprises', id:'univ-entreprises', icon:'🏢' },
     { labelKey:'nav_univ_stats', id:'univ-stats', icon:'📈' },
-    { labelKey:'nav_univ_archives', id:'univ-archives', icon:'🗄️' },
-    { labelKey:'nav_univ_comptes', id:'univ-comptes', icon:'🏛️' },
-    { labelKey:'nav_univ_paiement', id:'univ-paiement', icon:'💳' }
+    { labelKey:'nav_univ_archives', id:'univ-archives', icon:'🗄️' }
   ],
-  // Menu réduit pour le Recteur (compte université) : uniquement le tableau de bord
-  // statistique global et la gestion de la structure (facultés/départements)
+  // Menu recteur (compte université) : vue globale sans gestion locale des facultés
   universite_recteur:[
     { labelKey:'nav_univ_dashboard', id:'univ-dashboard', icon:'📊' },
-    { labelKey:'nav_univ_comptes', id:'univ-comptes', icon:'🏛️' },
-    { labelKey:'nav_univ_paiement', id:'univ-paiement', icon:'💳' }
+    { labelKey:'nav_univ_conventions', id:'univ-conventions', icon:'📄', badge:3 },
+    { labelKey:'nav_univ_etudiants', id:'univ-etudiants', icon:'🎓' },
+    { labelKey:'nav_univ_entreprises', id:'univ-entreprises', icon:'🏢' },
+    { labelKey:'nav_univ_stats', id:'univ-stats', icon:'📈' },
+    { labelKey:'nav_univ_archives', id:'univ-archives', icon:'🗄️' }
   ]
 };
 
@@ -46,9 +46,6 @@ function buildSidebar() {
     } else {
       // Faculté / Département : espace complet, sans la recherche d'entreprises
       items = items.filter(i=>i.id!=='univ-entreprises');
-      if(state.user.type==='departement'){
-        items = items.filter(i=>i.id!=='univ-comptes');
-      }
     }
   }
   const scopeLabel = state.role==='universite' ? scopeLabelHTML() : '';
