@@ -756,9 +756,11 @@ async function archiverConventionById(conventionId) {
         mergeConventionFromApi(data.convention);
       } else {
         conv.status = 'archived';
+        if (!conv.archivedAt) conv.archivedAt = new Date().toISOString();
       }
     } else {
       conv.status = 'archived';
+      if (!conv.archivedAt) conv.archivedAt = new Date().toISOString();
     }
     if (typeof persistConventionArchive === 'function') {
       await persistConventionArchive(conv.id);
@@ -1149,8 +1151,31 @@ function parseStageDurationMonths(text) {
 function formatStageDate(iso) {
   if (!iso) return '—';
   try {
-    return new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch (e) { return iso; }
+    const s = String(iso);
+    const d = s.includes('T') ? new Date(s) : new Date(s.slice(0, 10) + 'T12:00:00');
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) { return '—'; }
+}
+
+function formatConventionArchiveDate(conv) {
+  if (!conv) return '—';
+  const raw = conv.archivedAt || conv.updatedAt || conv.updated_at || conv.createdAt || conv.created_at;
+  if (raw) return formatStageDate(raw);
+  return '—';
+}
+
+function estimateConventionArchiveSize(conv) {
+  if (!conv) return '—';
+  try {
+    const sigLen = conv.signatures ? JSON.stringify(conv.signatures).length : 0;
+    const hashLen = (conv.documentHash || '').length + (conv.finalIntegrityHash || '').length;
+    const kb = Math.max(80, Math.round((sigLen + hashLen + 6000) / 1024));
+    if (kb >= 1024) return (kb / 1024).toFixed(1) + ' MB';
+    return kb + ' Ko';
+  } catch (_) {
+    return '—';
+  }
 }
 
 function isStagePeriodEnded(conv) {

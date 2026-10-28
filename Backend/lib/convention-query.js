@@ -3,10 +3,11 @@ const { HASH_ALGORITHM } = require('./convention-hash');
 
 const EXTENDED_COLS = `id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
   signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
-  document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin`;
+  document_hash, final_integrity_hash, hash_algorithm, date_debut, date_fin, created_at, updated_at`;
 
 const BASIC_COLS = `id, reference, student_name, entreprise_id, entreprise_nom, theme, periode, status,
-  signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures`;
+  signed_etudiant, signed_entreprise, signed_universite, faculte, departement, signatures,
+  created_at, updated_at`;
 
 async function queryConventions(pool, { where, params, orderBy = 'id DESC' }) {
   try {

@@ -60,6 +60,9 @@ function mapConventionRow(row) {
     documentHash: row.document_hash || sig.documentHash || null,
     finalIntegrityHash: row.final_integrity_hash || null,
     hashAlgorithm: row.hash_algorithm || 'SHA-256',
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    archivedAt: row.status === 'archived' ? (row.updated_at || row.created_at || null) : null,
     fromDb: true,
   };
 }

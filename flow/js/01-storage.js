@@ -82,6 +82,7 @@ function applySharedDataToModel(){
       c.signed_entreprise = !!s.signed_entreprise;
       c.signed_univ = !!s.signed_univ;
       if(s.status) c.status = s.status;
+      if(s.archivedAt) c.archivedAt = s.archivedAt;
       c.signatures = s.signatures || {};
     } else {
       c.signatures = c.signatures || {};
@@ -179,12 +180,14 @@ async function persistConventionArchive(conventionId) {
   const conv = conventions.find(function(c) { return c.id === conventionId; });
   if (!conv) return null;
   conv.status = 'archived';
+  if (!conv.archivedAt) conv.archivedAt = new Date().toISOString();
   sharedData.conventionStates[conventionId] = {
     ...(sharedData.conventionStates[conventionId] || {}),
     signed_etudiant: !!conv.signed_etudiant,
     signed_entreprise: !!conv.signed_entreprise,
     signed_univ: !!conv.signed_univ,
     status: 'archived',
+    archivedAt: conv.archivedAt,
     signatures: conv.signatures || {},
     documentHash: conv.documentHash || null,
     finalIntegrityHash: conv.finalIntegrityHash || null,
