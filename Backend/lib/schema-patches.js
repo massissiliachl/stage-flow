@@ -10,15 +10,31 @@ async function ensureStageDemandMessageColumn(pool) {
   }
 }
 
+async function ensureStudentProfileDocumentsColumn(pool) {
+  if (!pool) return;
+  try {
+    await pool.query(
+      `ALTER TABLE students ADD COLUMN IF NOT EXISTS profile_documents JSONB NOT NULL DEFAULT '[]'::jsonb`
+    );
+  } catch (err) {
+    console.warn('[StageFlow] Migration students.profile_documents:', err.message);
+  }
+}
+
 async function runStartupSchemaPatches() {
   if (!process.env.DATABASE_URL) return;
   try {
     const { getPool } = require('./db');
     const pool = getPool();
     await ensureStageDemandMessageColumn(pool);
+    await ensureStudentProfileDocumentsColumn(pool);
   } catch (err) {
     console.warn('[StageFlow] Patches schéma au démarrage:', err.message);
   }
 }
 
-module.exports = { runStartupSchemaPatches, ensureStageDemandMessageColumn };
+module.exports = {
+  runStartupSchemaPatches,
+  ensureStageDemandMessageColumn,
+  ensureStudentProfileDocumentsColumn,
+};

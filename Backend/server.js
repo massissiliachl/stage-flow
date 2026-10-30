@@ -13,6 +13,7 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use('/api/etudiant/documents', express.json({ limit: '6mb' }), require('./routes/student-documents').studentDocumentsRouter);
 
 app.use('/api/auth/entreprise', require('./routes/auth-entreprise'));
 app.use('/api/auth/etudiant', require('./routes/auth-etudiant'));

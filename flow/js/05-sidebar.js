@@ -83,7 +83,7 @@ function navigateTo(pageId) {
     loadCompaniesFromDb().finally(renderPage);
     return;
   }
-  if (state.role === 'etudiant' && (pageId === 'dashboard' || pageId === 'demandes' || pageId === 'convention' || pageId === 'dossier') && typeof syncEtudiantFromDb === 'function') {
+  if (state.role === 'etudiant' && (pageId === 'dashboard' || pageId === 'demandes' || pageId === 'convention' || pageId === 'dossier' || pageId === 'profil') && typeof syncEtudiantFromDb === 'function') {
     syncEtudiantFromDb().finally(renderPage);
     return;
   }

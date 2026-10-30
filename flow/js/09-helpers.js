@@ -119,6 +119,278 @@ function docRow(name,type,status,size){
   </div>`;
 }
 
+const STUDENT_PROFILE_DOC_SLOTS = [
+  { category: 'cv', label: 'Curriculum Vitae' },
+  { category: 'motivation', label: 'Lettre de motivation' },
+  { category: 'notes', label: 'Relevé de notes' },
+  { category: 'inscription', label: 'Attestation inscription' },
+];
+
+function formatFileSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n <= 0) return '—';
+  if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  if (n >= 1024) return Math.round(n / 1024) + ' Ko';
+  return n + ' o';
+}
+
+function mimeTypeToDocType(mime) {
+  const m = String(mime || '').toLowerCase();
+  if (m === 'application/pdf') return 'PDF';
+  if (m.startsWith('image/')) return m.split('/')[1].toUpperCase();
+  return 'Fichier';
+}
+
+function getStudentProfileDocsList() {
+  return Array.isArray(state.studentProfileDocs) ? state.studentProfileDocs : [];
+}
+
+function findStudentProfileDocByCategory(category) {
+  return getStudentProfileDocsList().find(function(d) { return d.category === category; }) || null;
+}
+
+function renderStudentProfileDocumentsBlock() {
+  const docs = getStudentProfileDocsList();
+  const otherDocs = docs.filter(function(d) {
+    return !STUDENT_PROFILE_DOC_SLOTS.some(function(s) { return s.category === d.category; });
+  });
+
+  const slotRows = STUDENT_PROFILE_DOC_SLOTS.map(function(slot) {
+    const doc = findStudentProfileDocByCategory(slot.category);
+    if (doc) {
+      return studentProfileDocRow(doc);
+    }
+    return `<div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="flex items-center gap8"><span>⏳</span><div><div class="text-sm">${slot.label}</div><div class="text-xs text-muted">Non déposé</div></div></div>
+      <button class="btn btn-cyan btn-sm" onclick="openAddStudentDocumentModal('${slot.category}')">📤 Déposer</button>
+    </div>`;
+  }).join('');
+
+  const otherRows = otherDocs.map(studentProfileDocRow).join('');
+
+  return `${slotRows}${otherRows}
+    <p class="text-xs text-muted" style="margin-top:12px;line-height:1.5">Formats acceptés : PDF, JPEG, PNG, WebP · 4 Mo max · visible par les entreprises lors de vos candidatures.</p>
+    <div style="margin-top:12px"><button class="btn btn-ghost w-full" onclick="openAddStudentDocumentModal('other')">+ Ajouter un document</button></div>`;
+}
+
+function studentProfileDocRow(doc) {
+  const id = String(doc.id || '').replace(/'/g, '');
+  const label = (doc.label || 'Document').replace(/</g, '&lt;');
+  const typeLabel = mimeTypeToDocType(doc.mimeType);
+  const sizeLabel = formatFileSize(doc.size);
+  const dateLabel = doc.uploadedAt ? formatStageDate(doc.uploadedAt) : '';
+  const meta = [typeLabel, sizeLabel, dateLabel].filter(Boolean).join(' · ');
+  return `<div class="flex items-center justify-between" style="padding:10px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+    <div class="flex items-center gap8"><span>📄</span><div><div class="text-sm">${label}</div><div class="text-xs text-muted">${meta}</div></div></div>
+    <div class="flex gap4">
+      <button class="btn btn-ghost btn-sm" onclick="downloadStudentProfileDocument('${id}')">⬇</button>
+      <button class="btn btn-ghost btn-sm" onclick="openAddStudentDocumentModal('${doc.category || 'other'}', '${id}')">↻</button>
+      <button class="btn btn-ghost btn-sm" onclick="deleteStudentProfileDocument('${id}')" title="Supprimer">🗑</button>
+    </div>
+  </div>`;
+}
+
+function studentProfileDocQueryParams() {
+  const u = state.user || {};
+  const q = new URLSearchParams();
+  const mat = typeof normalizeStudentMatricule === 'function'
+    ? normalizeStudentMatricule(u.matricule || u.login_id || '')
+    : String(u.matricule || '').trim();
+  if (mat) q.set('matricule', mat);
+  if (u.name) q.set('studentName', u.name.trim());
+  return q;
+}
+
+function openAddStudentDocumentModal(presetCategory, replaceDocId) {
+  const u = state.user;
+  if (!u || state.role !== 'etudiant') {
+    showToast('⚠️ Connectez-vous avec votre compte étudiant');
+    return;
+  }
+  const cat = presetCategory || 'other';
+  const slot = STUDENT_PROFILE_DOC_SLOTS.find(function(s) { return s.category === cat; });
+  const modal = document.getElementById('demandeModal');
+  const title = document.getElementById('demandeModalTitle');
+  const content = document.getElementById('demandeModalContent');
+  if (!modal || !content) {
+    showToast('⚠️ Modale indisponible');
+    return;
+  }
+  state.pendingStudentDocReplaceId = replaceDocId || null;
+  if (title) title.textContent = replaceDocId ? '📄 Remplacer le document' : '📤 Ajouter un document';
+  const categoryOptions = STUDENT_PROFILE_DOC_SLOTS.map(function(s) {
+    return `<option value="${s.category}" ${s.category === cat ? 'selected' : ''}>${s.label}</option>`;
+  }).join('') + `<option value="other" ${cat === 'other' ? 'selected' : ''}>Autre document</option>`;
+
+  content.innerHTML = `
+    <div class="form-group">
+      <label class="form-label">Type de document *</label>
+      <select id="studentDocCategory" class="form-input" onchange="toggleStudentDocCustomLabel()">${categoryOptions}</select>
+    </div>
+    <div class="form-group" id="studentDocCustomLabelWrap" style="display:${cat === 'other' ? 'block' : 'none'}">
+      <label class="form-label">Intitulé du document *</label>
+      <input id="studentDocCustomLabel" class="form-input" placeholder="Ex: Certificat de scolarité">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fichier * (PDF ou image, max 4 Mo)</label>
+      <input type="file" id="studentDocFile" class="form-input" accept=".pdf,application/pdf,image/jpeg,image/png,image/webp">
+    </div>
+    <p class="text-xs text-muted">${slot ? 'Remplace automatiquement l\'ancien fichier de cette catégorie.' : 'Le document sera enregistré sur votre profil StageFlow.'}</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeOverlay('demandeModal')">Annuler</button>
+      <button class="btn btn-cyan" onclick="submitStudentDocumentUpload()">📤 Enregistrer</button>
+    </div>`;
+  modal.classList.add('open');
+}
+
+function toggleStudentDocCustomLabel() {
+  const cat = document.getElementById('studentDocCategory')?.value || 'other';
+  const wrap = document.getElementById('studentDocCustomLabelWrap');
+  if (wrap) wrap.style.display = cat === 'other' ? 'block' : 'none';
+}
+
+function readFileAsBase64(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function() {
+      const result = String(reader.result || '');
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = function() { reject(new Error('Lecture du fichier impossible')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitStudentDocumentUpload() {
+  const u = state.user;
+  if (!u) return;
+  const fileInput = document.getElementById('studentDocFile');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) {
+    showToast('⚠️ Choisissez un fichier');
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    showToast('⚠️ Fichier trop volumineux (max 4 Mo)');
+    return;
+  }
+  const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+  const mime = file.type || 'application/pdf';
+  if (!allowed.includes(mime)) {
+    showToast('⚠️ Format non autorisé (PDF, JPEG, PNG, WebP)');
+    return;
+  }
+
+  const category = document.getElementById('studentDocCategory')?.value || 'other';
+  const slot = STUDENT_PROFILE_DOC_SLOTS.find(function(s) { return s.category === category; });
+  let label = slot ? slot.label : (document.getElementById('studentDocCustomLabel')?.value || '').trim();
+  if (category === 'other' && !label) {
+    showToast('⚠️ Indiquez le nom du document');
+    return;
+  }
+
+  showToast('⏳ Envoi en cours…');
+  try {
+    const dataBase64 = await readFileAsBase64(file);
+    const matricule = typeof normalizeStudentMatricule === 'function'
+      ? normalizeStudentMatricule(u.matricule || u.login_id || '')
+      : String(u.matricule || '').trim();
+    const payload = {
+      matricule,
+      studentName: u.name,
+      category,
+      label,
+      fileName: file.name,
+      mimeType: mime,
+      dataBase64,
+    };
+    const data = await apiJson('/api/etudiant/documents', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    state.studentProfileDocs = data.documents || [];
+    if (data.document && typeof persistStudentProfileDocsLocal === 'function') {
+      await persistStudentProfileDocsLocal(state.studentProfileDocs, { [data.document.id]: dataBase64 });
+    }
+    closeOverlay('demandeModal');
+    showToast('✅ Document enregistré');
+    navigateTo('profil');
+  } catch (err) {
+    console.warn('[StageFlow] Upload document:', err.message);
+    showToast('⚠️ ' + (err.message || 'Échec de l\'envoi'));
+  }
+}
+
+async function downloadStudentProfileDocument(docId) {
+  const u = state.user;
+  if (!u || !docId) return;
+  const summary = getStudentProfileDocsList().find(function(d) { return d.id === docId; });
+  showToast('⏳ Téléchargement…');
+  try {
+    const q = studentProfileDocQueryParams();
+    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId) + '?' + q.toString());
+    const doc = data.document;
+    let base64 = doc && doc.dataBase64;
+    if (!base64 && typeof getLocalStudentProfileDocFile === 'function') {
+      base64 = getLocalStudentProfileDocFile(docId);
+    }
+    if (!base64) {
+      showToast('⚠️ Contenu du fichier introuvable');
+      return;
+    }
+    triggerDownloadBase64File(base64, (doc && doc.fileName) || summary?.fileName || 'document.pdf', (doc && doc.mimeType) || summary?.mimeType || 'application/pdf');
+    showToast('✅ Téléchargement lancé');
+  } catch (err) {
+    const local = typeof getLocalStudentProfileDocFile === 'function' ? getLocalStudentProfileDocFile(docId) : null;
+    if (local) {
+      triggerDownloadBase64File(local, summary?.fileName || 'document.pdf', summary?.mimeType || 'application/pdf');
+      showToast('✅ Téléchargement (copie locale)');
+      return;
+    }
+    showToast('⚠️ ' + (err.message || 'Impossible de télécharger'));
+  }
+}
+
+function triggerDownloadBase64File(base64, fileName, mimeType) {
+  const bin = atob(base64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'document.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+}
+
+async function deleteStudentProfileDocument(docId) {
+  const u = state.user;
+  if (!u || !docId) return;
+  if (!confirm('Supprimer ce document de votre profil ?')) return;
+  try {
+    const matricule = typeof normalizeStudentMatricule === 'function'
+      ? normalizeStudentMatricule(u.matricule || u.login_id || '')
+      : String(u.matricule || '').trim();
+    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId), {
+      method: 'DELETE',
+      body: JSON.stringify({ matricule, studentName: u.name }),
+    });
+    state.studentProfileDocs = data.documents || [];
+    if (typeof persistStudentProfileDocsLocal === 'function') {
+      await persistStudentProfileDocsLocal(state.studentProfileDocs);
+    }
+    showToast('🗑️ Document supprimé');
+    navigateTo('profil');
+  } catch (err) {
+    showToast('⚠️ ' + (err.message || 'Suppression impossible'));
+  }
+}
+
 function progressRow(label,val){
   const c=val===100?'var(--success)':val===0?'var(--border)':'var(--cyan)';
   return `<div style="margin-bottom:12px">

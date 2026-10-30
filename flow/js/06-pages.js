@@ -343,11 +343,7 @@ ${(() => {
   </div>
   <div class="card">
     <div class="card-title">CV & Documents</div>
-    ${docRow('Curriculum Vitae','PDF','active','340 KB')}
-    ${docRow('Lettre de motivation','PDF','active','120 KB')}
-    ${docRow('Relevé de notes M1','PDF','active','890 KB')}
-    ${docRow('Attestation inscription','PDF','pending','—')}
-    <div style="margin-top:16px"><button class="btn btn-ghost w-full">+ Ajouter un document</button></div>
+    ${typeof renderStudentProfileDocumentsBlock === 'function' ? renderStudentProfileDocumentsBlock() : '<p class="text-sm text-muted">Chargement…</p>'}
   </div>
 </div>
 <div class="card mt16">

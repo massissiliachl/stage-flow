@@ -62,7 +62,7 @@ async function savePref(key, value){
 }
 
 // Cache local de l'état partagé (signatures, statuts demandes, statuts conventions)
-let sharedData = { conventionStates:{}, demandeStates:{}, companyRatings:{}, universityNotifications:[], generatedConventions:[], updatedAt:0 };
+let sharedData = { conventionStates:{}, demandeStates:{}, companyRatings:{}, universityNotifications:[], generatedConventions:[], studentProfileDocs:{}, updatedAt:0 };
 
 function applySharedDataToModel(){
   // Intègre les conventions générées manuellement par le département (suite à un accord)
@@ -125,6 +125,7 @@ async function syncSharedData(){
       companyRatings: data.companyRatings || {},
       universityNotifications: data.universityNotifications || [],
       generatedConventions: data.generatedConventions || [],
+      studentProfileDocs: data.studentProfileDocs || {},
       updatedAt: data.updatedAt || 0
     };
     applySharedDataToModel();
@@ -220,6 +221,42 @@ async function persistCompanyRating(companyId, studentName, value){
   applySharedDataToModel();
 }
 
+function studentProfileStorageKey() {
+  const u = state.user;
+  if (!u) return null;
+  const mat = typeof normalizeStudentMatricule === 'function'
+    ? normalizeStudentMatricule(u.matricule || u.login_id || '')
+    : String(u.matricule || u.login_id || '').trim();
+  return mat || String(u.name || '').trim() || null;
+}
+
+function loadStudentProfileDocsLocal() {
+  const key = studentProfileStorageKey();
+  if (!key) return [];
+  const bucket = (sharedData.studentProfileDocs || {})[key];
+  return bucket && Array.isArray(bucket.docs) ? bucket.docs : [];
+}
+
+async function persistStudentProfileDocsLocal(docs, fileEntry) {
+  const key = studentProfileStorageKey();
+  if (!key) return;
+  sharedData.studentProfileDocs = sharedData.studentProfileDocs || {};
+  const prev = sharedData.studentProfileDocs[key] || { docs: [], files: {} };
+  sharedData.studentProfileDocs[key] = {
+    docs: docs || [],
+    files: fileEntry ? { ...prev.files, ...fileEntry } : (prev.files || {}),
+    updatedAt: Date.now(),
+  };
+  await persistSharedData();
+}
+
+function getLocalStudentProfileDocFile(docId) {
+  const key = studentProfileStorageKey();
+  if (!key || !docId) return null;
+  const bucket = (sharedData.studentProfileDocs || {})[key];
+  return bucket && bucket.files ? bucket.files[docId] : null;
+}
+
 // ──────────────────────────────────
 // RÉINITIALISATION DE L'ESSAI
 // Remet à zéro signatures, demandes, notes et conventions au moment
@@ -241,7 +278,7 @@ async function resetSharedData(){
     delete c.studentRatingsCount;
   });
   state.signatures = {};
-  sharedData = { conventionStates:{}, demandeStates:{}, companyRatings:{}, universityNotifications:[], generatedConventions:[], updatedAt:0 };
+  sharedData = { conventionStates:{}, demandeStates:{}, companyRatings:{}, universityNotifications:[], generatedConventions:[], studentProfileDocs:{}, updatedAt:0 };
   await persistSharedData();
 }
 

@@ -1,7 +1,7 @@
 // ══════════════════════════════════
 // DATA
 // ══════════════════════════════════
-const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, entrepriseRapports:[], entrepriseAttestations:[], universityStudentsFromDb:[], companiesFromDb:false, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
+const state = { role:null, user:null, currentPage:null, signatures:{}, stageReports:{}, stageAttestations:{}, studentProfileDocs:[], entrepriseRapports:[], entrepriseAttestations:[], universityStudentsFromDb:[], companiesFromDb:false, currentCompanyId:null, currentCompanyName:null, authMode:'login', regAccountType:'departement', lang:'fr' };
 
 // Map des comptes inscrits en session (email → objet utilisateur)
 // Permet de gérer plusieurs comptes créés dynamiquement
@@ -400,6 +400,30 @@ async function syncEtudiantFromDb() {
   await syncStudentConventionsFromDb();
   await syncStudentStageReportFromDb();
   await syncStudentStageAttestationFromDb();
+  await syncStudentProfileDocsFromDb();
+}
+
+async function syncStudentProfileDocsFromDb() {
+  const u = state.user;
+  if (!u || state.role !== 'etudiant') return;
+  const matricule = normalizeStudentMatricule(u.matricule || u.login_id || '');
+  const name = (u.name || '').trim();
+  if (!matricule && !name) return;
+  const q = new URLSearchParams();
+  if (matricule) q.set('matricule', matricule);
+  if (name) q.set('studentName', name);
+  try {
+    const data = await apiJson('/api/etudiant/documents?' + q.toString());
+    state.studentProfileDocs = data.documents || [];
+    if (typeof persistStudentProfileDocsLocal === 'function') {
+      persistStudentProfileDocsLocal(state.studentProfileDocs);
+    }
+  } catch (e) {
+    console.warn('[StageFlow] Documents profil (base):', e.message);
+    if (typeof loadStudentProfileDocsLocal === 'function') {
+      state.studentProfileDocs = loadStudentProfileDocsLocal();
+    }
+  }
 }
 
 function ensureUniversityNotificationsFromConventions(fromDbConventions) {
