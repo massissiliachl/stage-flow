@@ -322,50 +322,97 @@ async function submitStudentDocumentUpload() {
   }
 }
 
-async function downloadStudentProfileDocument(docId) {
-  const u = state.user;
-  if (!u || !docId) return;
-  const summary = getStudentProfileDocsList().find(function(d) { return d.id === docId; });
-  showToast('⏳ Téléchargement…');
-  try {
-    const q = studentProfileDocQueryParams();
-    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId) + '?' + q.toString());
-    const doc = data.document;
-    let base64 = doc && doc.dataBase64;
-    if (!base64 && typeof getLocalStudentProfileDocFile === 'function') {
-      base64 = getLocalStudentProfileDocFile(docId);
-    }
-    if (!base64) {
-      showToast('⚠️ Contenu du fichier introuvable');
-      return;
-    }
-    triggerDownloadBase64File(base64, (doc && doc.fileName) || summary?.fileName || 'document.pdf', (doc && doc.mimeType) || summary?.mimeType || 'application/pdf');
-    showToast('✅ Téléchargement lancé');
-  } catch (err) {
-    const local = typeof getLocalStudentProfileDocFile === 'function' ? getLocalStudentProfileDocFile(docId) : null;
-    if (local) {
-      triggerDownloadBase64File(local, summary?.fileName || 'document.pdf', summary?.mimeType || 'application/pdf');
-      showToast('✅ Téléchargement (copie locale)');
-      return;
-    }
-    showToast('⚠️ ' + (err.message || 'Impossible de télécharger'));
-  }
+function normalizeBase64Input(base64) {
+  return String(base64 || '').replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
 }
 
-function triggerDownloadBase64File(base64, fileName, mimeType) {
-  const bin = atob(base64);
+function base64ToUint8Array(base64) {
+  const clean = normalizeBase64Input(base64);
+  if (!clean) return new Uint8Array(0);
+  const bin = atob(clean);
   const len = bin.length;
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
-  const blob = new Blob([bytes], { type: mimeType || 'application/octet-stream' });
+  return bytes;
+}
+
+function downloadBlob(blob, fileName) {
+  if (!blob || blob.size < 1) {
+    showToast('⚠️ Fichier vide ou illisible — redéposez le document');
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName || 'document.pdf';
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
+}
+
+function triggerDownloadBase64File(base64, fileName, mimeType) {
+  const bytes = base64ToUint8Array(base64);
+  if (!bytes.length) {
+    showToast('⚠️ Fichier vide — redéposez le document');
+    return;
+  }
+  const mime = mimeType || 'application/octet-stream';
+  if (mime === 'application/pdf' && bytes[0] !== 0x25) {
+    showToast('⚠️ PDF invalide en base — supprimez et téléversez à nouveau');
+    return;
+  }
+  downloadBlob(new Blob([bytes], { type: mime }), fileName);
+}
+
+async function downloadStudentProfileDocument(docId) {
+  const u = state.user;
+  if (!u || !docId) return;
+  const summary = getStudentProfileDocsList().find(function(d) { return d.id === docId; });
+  const defaultName = summary?.fileName || 'document.pdf';
+  const defaultMime = summary?.mimeType || 'application/pdf';
+  showToast('⏳ Téléchargement…');
+  const q = studentProfileDocQueryParams();
+  const fileUrl = API_BASE + '/api/etudiant/documents/' + encodeURIComponent(docId) + '/file?' + q.toString();
+  try {
+    const res = await fetch(fileUrl);
+    if (!res.ok) {
+      let msg = 'Impossible de télécharger';
+      try {
+        const errJson = await res.json();
+        msg = errJson.error || msg;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    if (blob.size < 50) throw new Error('Fichier vide en base — redéposez le document');
+    let name = defaultName;
+    const disp = res.headers.get('Content-Disposition') || '';
+    const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(disp);
+    if (m) name = decodeURIComponent(m[1] || m[2] || name);
+    downloadBlob(blob, name);
+    showToast('✅ Téléchargement lancé');
+    return;
+  } catch (err) {
+    console.warn('[StageFlow] Download document file:', err.message);
+  }
+  const local = typeof getLocalStudentProfileDocFile === 'function' ? getLocalStudentProfileDocFile(docId) : null;
+  if (local) {
+    triggerDownloadBase64File(local, defaultName, defaultMime);
+    showToast('✅ Téléchargement (copie locale)');
+    return;
+  }
+  try {
+    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId) + '?' + q.toString());
+    const doc = data.document;
+    if (doc && doc.dataBase64) {
+      triggerDownloadBase64File(doc.dataBase64, doc.fileName || defaultName, doc.mimeType || defaultMime);
+      showToast('✅ Téléchargement lancé');
+      return;
+    }
+  } catch (_) {}
+  showToast('⚠️ Document introuvable — redéposez le fichier depuis Mon profil');
 }
 
 async function deleteStudentProfileDocument(docId) {
@@ -1123,7 +1170,7 @@ function exportConventionPdfViaIframe(innerHtml, filename, title, stylesFn) {
     if (done) return;
     done = true;
     cleanup();
-    printFallback(innerHtml, title, true);
+    printFallback(innerHtml, title, useAttestation ? 'attestation' : 'convention');
   };
 
   const attempt = function() {
@@ -1206,7 +1253,7 @@ function generatePdfFromElement(innerHtml, filename, title, options){
   }
 
   if (isAttestation) {
-    exportConventionPdfViaIframe(innerHtml, filename, title, attestationOfficialStyles);
+    printFallback(innerHtml, title || filename, 'attestation');
     return;
   }
 
@@ -1267,8 +1314,12 @@ function generatePdfFromElement(innerHtml, filename, title, options){
   });
 }
 
-function printFallback(innerHtml, title, isConvention){
-  const styles = isConvention ? conventionPdfStyles() : `
+function printFallback(innerHtml, title, mode){
+  const isAttestation = mode === 'attestation';
+  const isConvention = mode === 'convention' || mode === true;
+  const styles = isAttestation && typeof attestationOfficialStyles === 'function'
+    ? attestationOfficialStyles()
+    : isConvention ? conventionPdfStyles() : `
       body{font-family:Georgia,serif;line-height:1.8;font-size:13px;color:#1b2a48;padding:32px 40px;margin:0}
       .pdf-header{text-align:center;margin-bottom:28px;border-bottom:2px double #000;padding-bottom:16px}
       .pdf-header .uni-name{font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}
@@ -1288,9 +1339,11 @@ function printFallback(innerHtml, title, isConvention){
       .sign-box-pdf .sign-date{font-size:10px;color:#888;margin-top:4px}
       .cert-badge{display:inline-flex;align-items:center;gap:6px;background:#D1FAE5;border-radius:20px;padding:4px 12px;font-size:11px;color:#065F46;font-weight:500;margin-top:8px}
       @media print{ body{padding:16px 24px} }`;
-  const bodyHtml = isConvention
-    ? '<div class="pdf-preview">' + innerHtml + '</div>'
-    : innerHtml;
+  const bodyHtml = isAttestation
+    ? innerHtml
+    : isConvention
+      ? '<div class="pdf-preview">' + innerHtml + '</div>'
+      : innerHtml;
   const win = window.open('', '_blank');
   if(!win){
     showToast('âš ï¸ Veuillez autoriser les fenÃªtres pop-up pour gÃ©nÃ©rer le PDF');

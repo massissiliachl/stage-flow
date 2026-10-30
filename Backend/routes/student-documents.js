@@ -99,6 +99,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+/** GET /api/etudiant/documents/:docId/file?matricule=&studentName= — binaire (PDF / image) */
+router.get('/:docId/file', async (req, res) => {
+  const docId = String(req.params.docId || '').trim();
+  if (!docId) return res.status(400).json({ error: 'Document invalide' });
+  try {
+    const pool = getPool();
+    const row = await resolveStudentRow(pool, {
+      matricule: req.query.matricule,
+      studentName: req.query.studentName,
+    });
+    if (!row) return res.status(404).json({ error: 'Étudiant introuvable' });
+    const doc = parseDocuments(row.profile_documents).find((d) => d.id === docId);
+    if (!doc || !doc.dataBase64) {
+      return res.status(404).json({ error: 'Document introuvable ou fichier vide' });
+    }
+    const base64 = String(doc.dataBase64).replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
+    let buffer;
+    try {
+      buffer = Buffer.from(base64, 'base64');
+    } catch (_) {
+      return res.status(500).json({ error: 'Fichier corrompu en base' });
+    }
+    if (!buffer.length) {
+      return res.status(404).json({ error: 'Fichier vide' });
+    }
+    const mime = doc.mimeType || 'application/octet-stream';
+    const safeName = String(doc.fileName || 'document.pdf').replace(/[^\w.\-()À-ÿ\s]/g, '_');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(safeName)}"; filename*=UTF-8''${encodeURIComponent(safeName)}`);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Stream student document error:', err.message);
+    res.status(500).json({ error: 'Erreur lors du téléchargement' });
+  }
+});
+
 /** GET /api/etudiant/documents/:docId?matricule=&studentName= */
 router.get('/:docId', async (req, res) => {
   const docId = String(req.params.docId || '').trim();
