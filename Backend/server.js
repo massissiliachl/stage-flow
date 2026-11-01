@@ -52,10 +52,12 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', async (req, res) => {
+  const { isJwtConfigured } = require('./lib/session-jwt');
   const status = {
     server: 'ok',
     postgres: { connected: false },
     authEntreprise: 'ready',
+    jwtSessions: isJwtConfigured() ? 'ready' : 'missing_secret',
   };
 
   if (!process.env.DATABASE_URL) {
