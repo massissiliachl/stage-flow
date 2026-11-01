@@ -76,8 +76,8 @@ async function apiJson(path, options = {}, attempt = 0) {
     });
   } catch (fetchErr) {
     if (timer) clearTimeout(timer);
-    if (attempt < 1) {
-      await new Promise(function(r) { setTimeout(r, 2500); });
+    if (attempt < 3) {
+      await new Promise(function(r) { setTimeout(r, 2000 + attempt * 3500); });
       return apiJson(path, options, attempt + 1);
     }
     const err = new Error(
@@ -106,11 +106,16 @@ async function apiJson(path, options = {}, attempt = 0) {
   return data;
 }
 
-/** Réveille l’API Render (1re requête mobile souvent lente). */
+/** Réveille l’API Render (1re requête souvent lente après veille). */
 async function warmApiForLogin() {
-  try {
-    await apiJson('/api/auth/etudiant/ping', {}, 0);
-  } catch (_) {}
+  for (let i = 0; i < 3; i++) {
+    try {
+      await apiJson('/api/auth/etudiant/ping', {}, 0);
+      return;
+    } catch (_) {
+      await new Promise(function(r) { setTimeout(r, 4000); });
+    }
+  }
 }
 
 /** Enregistre université / faculté en base pour l'inscription étudiant. */
