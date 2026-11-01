@@ -273,12 +273,17 @@ function logout() {
   showLanding();
   document.getElementById('app').style.display = 'none';
   state.role = null; state.user = null; state.signatures = {};
+  state.universityStudentsFromDb = [];
   renderLandingStats();
-  // Réinitialise l'essai (signatures, demandes, notes) pour pouvoir recommencer
-  resetSharedData().then(()=>{
-    showToast('🔄 Essai réinitialisé — vous pouvez recommencer');
-    renderLandingStats();
-  });
+  const demoReset = typeof showDemoAuthAccounts === 'function' && showDemoAuthAccounts();
+  if (demoReset) {
+    resetSharedData().then(()=>{
+      showToast('🔄 Essai réinitialisé — vous pouvez recommencer');
+      renderLandingStats();
+    });
+  } else if (document.documentElement.classList.contains('role-direct-entry')) {
+    window.location.href = 'index.html';
+  }
 }
 
 function getDefaultPage() {
@@ -328,6 +333,7 @@ function loginFormHTML(){
       <div class="form-group"><label class="form-label">${t('auth_email')}</label><input id="loginEmail" class="form-input" placeholder="ex: sic@univ-bejaia.dz"></div>
       <div class="form-group"><label class="form-label">${t('auth_password')}</label><input id="loginPassword" type="password" class="form-input" placeholder="••••••••"></div>
       <button class="btn btn-cyan w-full" onclick="submitUnivLogin()">${t('auth_login_btn')}</button>
+      ${typeof showDemoAuthAccounts === 'function' && showDemoAuthAccounts() ? `
       <div class="auth-demo-box">
         <div class="text-xs text-muted mb8" style="font-weight:600">${t('auth_demo_accounts')}</div>
         ${universityAccounts.map(a=>`
@@ -335,7 +341,7 @@ function loginFormHTML(){
             <span class="auth-demo-type">${accountTypeLabel(a.type)}</span>
             <span class="auth-demo-email">${a.email}</span>
           </div>`).join('')}
-      </div>
+      </div>` : ''}
     </div>`;
 }
 
@@ -345,13 +351,20 @@ function fillLogin(email, pass){
   setTimeout(()=>submitUnivLogin(), 50);
 }
 
-function submitUnivLogin(){
-  const email = (document.getElementById('loginEmail').value||'').trim().toLowerCase();
+async function submitUnivLogin(){
+  const rawEmail = (document.getElementById('loginEmail').value||'').trim();
+  const email = rawEmail.toLowerCase();
   const pass = document.getElementById('loginPassword').value||'';
+  if (/^\d{8,}$/.test(rawEmail.replace(/\s/g, ''))) {
+    showToast('⚠️ Le matricule étudiant se connecte sur la page Étudiant (etudiant.html), pas ici.');
+    return;
+  }
   const account = universityAccounts.find(a=>a.email.toLowerCase()===email && a.password===pass);
   if(!account){ showToast('❌ Email ou mot de passe incorrect'); return; }
   state.user = account;
   document.getElementById('univAuthScreen').style.display = 'none';
+  showToast('⏳ Chargement de votre espace…');
+  if (typeof syncUniversiteFromDb === 'function') await syncUniversiteFromDb();
   enterApp('universite');
 }
 

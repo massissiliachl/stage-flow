@@ -174,19 +174,26 @@ function itemMatchesScope(item, scope) {
 }
 
 function filterByScope(list, account){
+  let base = Array.isArray(list) ? list : [];
+  if (state.role === 'universite' && typeof showDemoAuthAccounts === 'function' && !showDemoAuthAccounts()) {
+    base = base.filter(function(item) { return item && item.fromDb === true; });
+  }
   const scope = getScopeFiltersFor(account);
-  if(!scope) return list;
-  return list.filter(function(item) { return itemMatchesScope(item, scope); });
+  if(!scope) return base;
+  return base.filter(function(item) { return itemMatchesScope(item, scope); });
 }
 
 function getUniversityStudents() {
   const real = Array.isArray(state.universityStudentsFromDb) ? state.universityStudentsFromDb : [];
-  const demo = students_bejaia.filter(function(s) {
-    return !real.some(function(r) {
-      return String(r.name || '').toLowerCase() === String(s.name || '').toLowerCase();
+  if (typeof showDemoAuthAccounts === 'function' && showDemoAuthAccounts()) {
+    const demo = students_bejaia.filter(function(s) {
+      return !real.some(function(r) {
+        return String(r.name || '').toLowerCase() === String(s.name || '').toLowerCase();
+      });
     });
-  });
-  return real.concat(demo);
+    return real.concat(demo);
+  }
+  return real;
 }
 
 // Renvoie les comptes directement rattachés (enfants) d'un compte

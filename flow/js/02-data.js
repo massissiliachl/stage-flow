@@ -426,6 +426,41 @@ async function syncStudentProfileDocsFromDb() {
   }
 }
 
+function pruneUniversityNotificationsToScope(fromDbConventions) {
+  if (!state.user || state.role !== 'universite') return;
+  const scoped = typeof filterByScope === 'function'
+    ? filterByScope((fromDbConventions || []).map(function(c) { return Object.assign({}, c, { fromDb: true }); }), state.user)
+    : (fromDbConventions || []);
+  const allowedIds = new Set(scoped.map(function(c) { return Number(c.id); }));
+  sharedData.universityNotifications = (sharedData.universityNotifications || []).filter(function(n) {
+    if (n.generatedConventionId != null) return allowedIds.has(Number(n.generatedConventionId));
+    if (!n.faculte && !n.departement) return false;
+    return typeof itemMatchesScope === 'function' && itemMatchesScope(n, getScopeFiltersFor(state.user) || { facultes: [], departements: [] })
+      || !getScopeFiltersFor(state.user);
+  });
+  scoped.forEach(function(conv) {
+    if (!conv || !conv.id) return;
+    const exists = sharedData.universityNotifications.some(function(n) {
+      return Number(n.generatedConventionId) === Number(conv.id);
+    });
+    if (exists) return;
+    sharedData.universityNotifications.push({
+      id: 'conv-db-' + conv.id,
+      studentName: conv.etudiant,
+      studentLabel: conv.etudiant,
+      company: conv.company,
+      theme: conv.theme || '',
+      encadrantEntreprise: conv.encadrant_entreprise || '—',
+      faculte: conv.faculte || '',
+      departement: conv.departement || '',
+      conventionGenerated: true,
+      generatedConventionId: conv.id,
+      conventionReference: conv.reference || null,
+      read: false,
+    });
+  });
+}
+
 function ensureUniversityNotificationsFromConventions(fromDbConventions) {
   if (!Array.isArray(fromDbConventions) || !fromDbConventions.length) return;
   sharedData.universityNotifications = sharedData.universityNotifications || [];
@@ -453,9 +488,20 @@ function ensureUniversityNotificationsFromConventions(fromDbConventions) {
   });
 }
 
+function universityOverviewQuery() {
+  const u = state.user;
+  if (!u || state.role !== 'universite') return '';
+  const q = new URLSearchParams();
+  if (u.type) q.set('type', u.type);
+  if (u.faculte) q.set('faculte', u.faculte);
+  if (u.departement) q.set('departement', u.departement);
+  const s = q.toString();
+  return s ? '?' + s : '';
+}
+
 async function syncUniversiteFromDb() {
   try {
-    const data = await apiJson('/api/universite/overview');
+    const data = await apiJson('/api/universite/overview' + universityOverviewQuery());
     const fromDb = data.conventions || [];
     for (let i = conventions.length - 1; i >= 0; i--) {
       if (conventions[i].fromDb) conventions.splice(i, 1);
@@ -465,8 +511,14 @@ async function syncUniversiteFromDb() {
       if (idx >= 0) conventions[idx] = c;
       else conventions.push(c);
     });
-    state.universityStudentsFromDb = data.students || [];
-    ensureUniversityNotificationsFromConventions(fromDb);
+    state.universityStudentsFromDb = (data.students || []).map(function(s) {
+      return Object.assign({}, s, { fromDb: true });
+    });
+    if (typeof showDemoAuthAccounts === 'function' && showDemoAuthAccounts()) {
+      ensureUniversityNotificationsFromConventions(fromDb);
+    } else if (typeof pruneUniversityNotificationsToScope === 'function') {
+      pruneUniversityNotificationsToScope(fromDb);
+    }
     await persistSharedData();
     return { changed: true, newDemandes: [] };
   } catch (e) {

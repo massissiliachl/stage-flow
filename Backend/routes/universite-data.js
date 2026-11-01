@@ -4,6 +4,39 @@ const { queryConventions, mapConventionRows } = require('../lib/convention-query
 
 const router = express.Router();
 
+/** Filtre faculté / département selon le compte connecté (query). */
+function scopeFiltersFromQuery(query) {
+  const type = String(query.type || '').trim();
+  const faculte = String(query.faculte || '').trim();
+  const departement = String(query.departement || '').trim();
+  const convParts = [];
+  const convParams = [];
+  const studentParts = [];
+  const studentParams = [];
+  let n = 1;
+
+  if (type === 'departement' && departement) {
+    convParts.push(`departement ILIKE $${n}`);
+    convParams.push(`%${departement.replace(/[%_]/g, '')}%`);
+    studentParts.push(`s.departement ILIKE $${n}`);
+    studentParams.push(`%${departement.replace(/[%_]/g, '')}%`);
+    n += 1;
+  } else if (type === 'faculte' && faculte) {
+    convParts.push(`faculte ILIKE $${n}`);
+    convParams.push(`%${faculte.replace(/[%_]/g, '')}%`);
+    studentParts.push(`s.faculte ILIKE $${n}`);
+    studentParams.push(`%${faculte.replace(/[%_]/g, '')}%`);
+    n += 1;
+  }
+
+  return {
+    convWhere: convParts.length ? convParts.join(' AND ') : '1=1',
+    convParams,
+    studentAnd: studentParts.length ? ' AND ' + studentParts.join(' AND ') : '',
+    studentParams,
+  };
+}
+
 function mapStudentRow(row) {
   return {
     name: row.name || '',
@@ -24,10 +57,11 @@ function mapStudentRow(row) {
 router.get('/overview', async (req, res) => {
   try {
     const pool = getPool();
+    const scope = scopeFiltersFromQuery(req.query);
 
     const convRes = await queryConventions(pool, {
-      where: '1=1',
-      params: [],
+      where: scope.convWhere,
+      params: scope.convParams,
       orderBy: 'id DESC',
     });
 
@@ -52,8 +86,9 @@ router.get('/overview', async (req, res) => {
            ) AS company
          FROM students s
          JOIN users u ON u.id = s.user_id
-         WHERE u.role = 'etudiant'
-         ORDER BY u.display_name ASC`
+         WHERE u.role = 'etudiant'${scope.studentAnd}
+         ORDER BY u.display_name ASC`,
+        scope.studentParams
       );
     } catch (err) {
       console.warn('Université students (requête étendue) — repli:', err.message);
@@ -68,8 +103,9 @@ router.get('/overview', async (req, res) => {
            'En recherche' AS company
          FROM students s
          JOIN users u ON u.id = s.user_id
-         WHERE u.role = 'etudiant'
-         ORDER BY u.display_name ASC`
+         WHERE u.role = 'etudiant'${scope.studentAnd}
+         ORDER BY u.display_name ASC`,
+        scope.studentParams
       );
     }
 

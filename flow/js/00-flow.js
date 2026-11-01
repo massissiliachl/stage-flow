@@ -15,6 +15,11 @@ function dismissAccessGuard() {
   hideAccessGuardImmediate();
 }
 
+/** Liste « comptes démo » université — visible seulement avec ?demo=1 (usage perso). */
+function showDemoAuthAccounts() {
+  try { return new URLSearchParams(window.location.search).get('demo') === '1'; } catch (e) { return false; }
+}
+
 /** Inscription depuis l’accueil (?register=1 ou intent sessionStorage). */
 function flowWantsRegister() {
   if (new URLSearchParams(window.location.search).get('register')) return true;
