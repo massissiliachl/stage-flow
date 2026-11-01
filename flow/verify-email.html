@@ -2,12 +2,14 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>StageFlow — Vérification email</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/app.css">
 <style>
-body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+body{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
+.verify-card{padding:32px 20px}
+@media (max-width:480px){.verify-title{font-size:19px}.verify-card{padding:28px 16px}}
 .verify-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:40px 32px;max-width:480px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(11,30,61,.08)}
 .verify-icon{font-size:56px;margin-bottom:16px}
 .verify-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;color:var(--navy)}

@@ -37,7 +37,34 @@ const menus = {
   ]
 };
 
+function isMobileSidebarViewport() {
+  return window.matchMedia('(max-width: 1024px)').matches;
+}
+
+function toggleMobileSidebar(forceOpen) {
+  const open = typeof forceOpen === 'boolean' ? forceOpen : !document.body.classList.contains('sidebar-open');
+  document.body.classList.toggle('sidebar-open', open);
+  const btn = document.getElementById('navMenuBtn');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeMobileSidebar() {
+  if (document.body.classList.contains('sidebar-open')) toggleMobileSidebar(false);
+}
+
+function initSidebarResponsive() {
+  if (window.__sfSidebarResponsiveInit) return;
+  window.__sfSidebarResponsiveInit = true;
+  window.addEventListener('resize', function() {
+    if (!isMobileSidebarViewport()) closeMobileSidebar();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeMobileSidebar();
+  });
+}
+
 function buildSidebar() {
+  initSidebarResponsive();
   let items = menus[state.role];
   if(state.role==='universite' && state.user){
     if(state.user.type==='universite'){
@@ -50,7 +77,7 @@ function buildSidebar() {
   }
   const scopeLabel = state.role==='universite' ? scopeLabelHTML() : '';
   document.getElementById('sidebar').innerHTML = `${scopeLabel}<div class="sidebar-section"><div class="sidebar-label">${t('nav_section_title')}</div>${
-    items.map(i=>{ const badge = typeof sidebarBadgeFor==='function' ? sidebarBadgeFor(i) : i.badge; return `<button class="nav-item" id="nav-${i.id}" onclick="navigateTo('${i.id}')">
+    items.map(i=>{ const badge = typeof sidebarBadgeFor==='function' ? sidebarBadgeFor(i) : i.badge; return `<button class="nav-item" id="nav-${i.id}" onclick="closeMobileSidebar();navigateTo('${i.id}')">
       <span class="nav-icon">${i.icon}</span>${t(i.labelKey)}${badge?`<span class="nav-badge">${badge}</span>`:''}
     </button>`; }).join('')}</div>`;
 }
@@ -67,6 +94,7 @@ function scopeLabelHTML(){
 }
 
 function navigateTo(pageId) {
+  closeMobileSidebar();
   state.currentPage = pageId;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const el = document.getElementById('nav-'+pageId);
