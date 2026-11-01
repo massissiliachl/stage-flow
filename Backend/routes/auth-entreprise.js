@@ -5,8 +5,12 @@ const { issueVerificationEmail } = require('../lib/email-verify');
 const { hasEmailVerifyColumns } = require('../lib/email-verify-db');
 const { hasAdminVerificationColumns } = require('../lib/admin-verification-db');
 const { sanitizeEntrepriseLogoImage } = require('../lib/entreprise-logo');
+const { signAppToken } = require('../lib/session-jwt');
+const { rateLimit } = require('../lib/rate-limit');
 
 const router = express.Router();
+const loginLimiter = rateLimit({ max: 30, keyPrefix: 'entreprise-login' });
+const registerLimiter = rateLimit({ max: 12, keyPrefix: 'entreprise-register' });
 
 function buildIdentifiant(nom) {
   return nom.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 32);
@@ -53,7 +57,7 @@ router.get('/ping', (req, res) => {
 /**
  * POST /api/auth/entreprise/register
  */
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const {
     nom,
     secteur,
@@ -310,7 +314,7 @@ router.post('/register', async (req, res) => {
 /**
  * POST /api/auth/entreprise/login
  */
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const loginId = ((req.body?.identifiant || req.body?.login_id || '') + '').trim().toUpperCase();
   const password = req.body?.password || '';
 
@@ -402,8 +406,24 @@ router.post('/login', async (req, res) => {
       [row.user_id]
     );
 
+    let token;
+    try {
+      token = signAppToken({
+        aud: 'entreprise',
+        sub: row.user_id,
+        entrepriseId: row.entreprise_id,
+        email: row.email || row.login_id,
+      });
+    } catch (signErr) {
+      console.error('JWT sign entreprise:', signErr.message);
+      return res.status(503).json({
+        error: 'Configuration serveur incomplète (APP_JWT_SECRET). Contactez l\'administrateur.',
+      });
+    }
+
     res.json({
       message: 'Connexion réussie',
+      token,
       user: toFrontendUser(row),
     });
   } catch (err) {

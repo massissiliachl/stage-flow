@@ -39,6 +39,12 @@ let universityAccounts = [
 
 const UNIVERSITY_ACCOUNTS_STORAGE_KEY = 'stageflow_university_accounts_v1';
 
+function stripUniversityAccountSecrets(account) {
+  const copy = Object.assign({}, account);
+  delete copy.password;
+  return copy;
+}
+
 function loadUniversityAccountsFromStorage() {
   try {
     const raw = localStorage.getItem(UNIVERSITY_ACCOUNTS_STORAGE_KEY);
@@ -46,7 +52,7 @@ function loadUniversityAccountsFromStorage() {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.length) return;
     universityAccounts.length = 0;
-    parsed.forEach(function(a) { universityAccounts.push(a); });
+    parsed.forEach(function(a) { universityAccounts.push(stripUniversityAccountSecrets(a)); });
   } catch (e) {
     console.warn('[StageFlow] Chargement comptes université:', e.message);
   }
@@ -54,7 +60,8 @@ function loadUniversityAccountsFromStorage() {
 
 function saveUniversityAccountsToStorage() {
   try {
-    localStorage.setItem(UNIVERSITY_ACCOUNTS_STORAGE_KEY, JSON.stringify(universityAccounts));
+    const safe = universityAccounts.map(stripUniversityAccountSecrets);
+    localStorage.setItem(UNIVERSITY_ACCOUNTS_STORAGE_KEY, JSON.stringify(safe));
   } catch (e) {
     console.warn('[StageFlow] Sauvegarde comptes université:', e.message);
   }

@@ -3,12 +3,16 @@ const { getPool } = require('../lib/db');
 const { registerUniversityStructure } = require('../lib/student-academic');
 
 const router = express.Router();
+const { requireAppSession } = require('../lib/require-app-auth');
+const { rateLimit } = require('../lib/rate-limit');
+
+const structureLimiter = rateLimit({ max: 40, keyPrefix: 'univ-structure' });
 
 /**
  * POST /api/universities/structure
  * Enregistre une université et/ou une faculté pour l'inscription étudiant (PostgreSQL).
  */
-router.post('/structure', async (req, res) => {
+router.post('/structure', structureLimiter, requireAppSession('universite'), async (req, res) => {
   const university = (req.body && req.body.university) || '';
   const faculte = (req.body && req.body.faculte) || '';
   const logo = (req.body && req.body.logo) || '';

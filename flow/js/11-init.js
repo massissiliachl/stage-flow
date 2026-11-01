@@ -27,3 +27,7 @@ resetSharedData();
 if (typeof syncAllUniversityAccountsStructureToDb === 'function') {
   syncAllUniversityAccountsStructureToDb();
 }
+
+if (typeof initSiteAccessGuard === 'function') {
+  initSiteAccessGuard();
+}

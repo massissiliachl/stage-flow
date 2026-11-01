@@ -18,6 +18,22 @@ const {
   updateConventionSign,
   mapConventionRows,
 } = require('../lib/convention-query');
+const {
+  requireEtudiantSession,
+  requireEntrepriseSession,
+  requireAppSessionAny,
+  getBearerToken,
+  sessionFromToken,
+  attachSession,
+} = require('../lib/require-app-auth');
+const { requireUniversiteSession } = require('../lib/require-universite-auth');
+const { verifyAppToken } = require('../lib/session-jwt');
+const {
+  canAccessConvention,
+  canAccessDemandeAsEntreprise,
+  canAccessDemandeAsEtudiant,
+  loadEtudiantIdentity,
+} = require('../lib/resource-access');
 
 const entreprisesRouter = express.Router();
 const demandesRouter = express.Router();
@@ -226,12 +242,10 @@ entreprisesRouter.get('/', async (req, res) => {
  * POST /api/demandes
  * Envoi d'une demande de stage par un étudiant
  */
-demandesRouter.post('/', async (req, res) => {
+demandesRouter.post('/', requireEtudiantSession, async (req, res) => {
   const {
     entrepriseId,
     entrepriseNom,
-    studentId,
-    studentName,
     studentLabel,
     theme,
     message,
@@ -242,14 +256,10 @@ demandesRouter.post('/', async (req, res) => {
 
   const entId = parseInt(entrepriseId, 10);
   const nomTrim = (entrepriseNom || '').trim();
-  const nameTrim = (studentName || studentLabel || '').trim();
   const themeTrim = (theme || '').trim();
 
   if (!entId || Number.isNaN(entId)) {
     return res.status(400).json({ error: 'Entreprise requise' });
-  }
-  if (!nameTrim) {
-    return res.status(400).json({ error: 'Nom étudiant requis' });
   }
   if (!themeTrim) {
     return res.status(400).json({ error: 'Thème de stage requis' });
@@ -257,6 +267,11 @@ demandesRouter.post('/', async (req, res) => {
 
   try {
     const pool = getPool();
+    const identity = await loadEtudiantIdentity(pool, req.appSession.userId);
+    const nameTrim = (identity?.display_name || req.appSession.displayName || '').trim();
+    if (!nameTrim) {
+      return res.status(400).json({ error: 'Profil étudiant introuvable' });
+    }
 
     if (await isStudentStageLocked(pool, nameTrim)) {
       return res.status(403).json({
@@ -290,7 +305,7 @@ demandesRouter.post('/', async (req, res) => {
 
     let faculteVal = (faculte || '').trim();
     let deptVal = (departement || '').trim();
-    const studentUserId = normalizeStudentUserId(studentId);
+    const studentUserId = req.appSession.userId;
     if (studentUserId && (!faculteVal || !deptVal)) {
       const meta = await loadStudentDemandMeta(pool, studentUserId);
       if (!faculteVal) faculteVal = meta.faculteVal;
@@ -328,9 +343,10 @@ demandesRouter.post('/', async (req, res) => {
  * PATCH /api/demandes/:demandeId/accept
  * Accepte une demande et crée automatiquement une convention en base
  */
-demandesRouter.patch('/:demandeId/accept', async (req, res) => {
+demandesRouter.patch('/:demandeId/accept', requireEntrepriseSession, async (req, res) => {
   const demandeId = parseInt(req.params.demandeId, 10);
-  const { entrepriseId, encadrant } = req.body || {};
+  const { encadrant } = req.body || {};
+  const entrepriseId = req.appSession.entrepriseId;
 
   if (!demandeId || Number.isNaN(demandeId)) {
     return res.status(400).json({ error: 'Identifiant demande invalide' });
@@ -358,8 +374,7 @@ demandesRouter.patch('/:demandeId/accept', async (req, res) => {
       return res.status(409).json({ error: 'Cette demande a déjà été traitée' });
     }
 
-    const entId = parseInt(entrepriseId, 10);
-    if (entId && !Number.isNaN(entId) && Number(demand.entreprise_id) !== entId) {
+    if (!canAccessDemandeAsEntreprise(req.appSession, demand)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Cette demande n\'appartient pas à votre entreprise' });
     }
@@ -368,7 +383,7 @@ demandesRouter.patch('/:demandeId/accept', async (req, res) => {
     if (!enc) {
       const encRes = await client.query(
         `SELECT encadrant_ent FROM users WHERE entreprise_id = $1 AND role = 'entreprise' LIMIT 1`,
-        [demand.entreprise_id]
+        [entrepriseId || demand.entreprise_id]
       );
       enc = encRes.rows[0]?.encadrant_ent || null;
     }
@@ -415,9 +430,8 @@ demandesRouter.patch('/:demandeId/accept', async (req, res) => {
  * PATCH /api/demandes/:demandeId/reject
  * Refuse une demande de stage
  */
-demandesRouter.patch('/:demandeId/reject', async (req, res) => {
+demandesRouter.patch('/:demandeId/reject', requireEntrepriseSession, async (req, res) => {
   const demandeId = parseInt(req.params.demandeId, 10);
-  const { entrepriseId } = req.body || {};
 
   if (!demandeId || Number.isNaN(demandeId)) {
     return res.status(400).json({ error: 'Identifiant demande invalide' });
@@ -435,8 +449,7 @@ demandesRouter.patch('/:demandeId/reject', async (req, res) => {
       return res.status(409).json({ error: 'Cette demande a déjà été traitée' });
     }
 
-    const entId = parseInt(entrepriseId, 10);
-    if (entId && !Number.isNaN(entId) && Number(demand.entreprise_id) !== entId) {
+    if (!canAccessDemandeAsEntreprise(req.appSession, demand)) {
       return res.status(403).json({ error: 'Cette demande n\'appartient pas à votre entreprise' });
     }
 
@@ -464,27 +477,23 @@ demandesRouter.patch('/:demandeId/reject', async (req, res) => {
  * PATCH /api/demandes/:demandeId/cancel
  * Annulation d'une demande en attente par l'étudiant
  */
-demandesRouter.patch('/:demandeId/cancel', async (req, res) => {
+demandesRouter.patch('/:demandeId/cancel', requireEtudiantSession, async (req, res) => {
   const demandeId = parseInt(req.params.demandeId, 10);
-  const { studentName } = req.body || {};
-  const nameTrim = (studentName || '').trim();
 
   if (!demandeId || Number.isNaN(demandeId)) {
     return res.status(400).json({ error: 'Identifiant demande invalide' });
   }
-  if (!nameTrim) {
-    return res.status(400).json({ error: 'Nom étudiant requis' });
-  }
 
   try {
     const pool = getPool();
+    const identity = await loadEtudiantIdentity(pool, req.appSession.userId);
     const existing = await pool.query('SELECT * FROM stage_demands WHERE id = $1', [demandeId]);
     if (!existing.rows.length) {
       return res.status(404).json({ error: 'Demande introuvable' });
     }
 
     const demand = existing.rows[0];
-    if (demand.student_name !== nameTrim) {
+    if (!canAccessDemandeAsEtudiant(req.appSession, demand, identity?.display_name)) {
       return res.status(403).json({ error: 'Cette demande ne vous appartient pas' });
     }
     if (demand.status !== 'pending') {
@@ -511,13 +520,14 @@ demandesRouter.patch('/:demandeId/cancel', async (req, res) => {
   }
 });
 
-demandesRouter.get('/', async (req, res) => {
-  const studentName = (req.query.studentName || '').trim();
-  if (!studentName) {
-    return res.status(400).json({ error: 'Paramètre studentName requis' });
-  }
+demandesRouter.get('/', requireEtudiantSession, async (req, res) => {
   try {
     const pool = getPool();
+    const identity = await loadEtudiantIdentity(pool, req.appSession.userId);
+    const studentName = (identity?.display_name || req.appSession.displayName || '').trim();
+    if (!studentName) {
+      return res.status(400).json({ error: 'Profil étudiant introuvable' });
+    }
     const result = await pool.query(
       `SELECT id, student_name, entreprise_id, entreprise_nom, theme, status, demand_date, encadrant, duree, faculte, departement
        FROM stage_demands
@@ -541,13 +551,14 @@ demandesRouter.get('/', async (req, res) => {
  * GET /api/conventions?studentName=...
  * Conventions d'un étudiant (depuis la base)
  */
-conventionsRouter.get('/stage-locked', async (req, res) => {
-  const studentName = (req.query.studentName || '').trim();
-  if (!studentName) {
-    return res.status(400).json({ error: 'Paramètre studentName requis' });
-  }
+conventionsRouter.get('/stage-locked', requireEtudiantSession, async (req, res) => {
   try {
     const pool = getPool();
+    const identity = await loadEtudiantIdentity(pool, req.appSession.userId);
+    const studentName = (identity?.display_name || req.appSession.displayName || '').trim();
+    if (!studentName) {
+      return res.status(400).json({ error: 'Profil étudiant introuvable' });
+    }
     const locked = await isStudentStageLocked(pool, studentName);
     res.json({ locked });
   } catch (err) {
@@ -569,6 +580,13 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
   if (!role || !['entreprise', 'universite'].includes(role)) {
     return res.status(400).json({ error: 'Seuls l\'entreprise et la doyenne (université) peuvent signer la convention' });
   }
+  const expectedAud = role === 'entreprise' ? 'entreprise' : 'universite';
+  const tokenData = verifyAppToken(getBearerToken(req));
+  const session = sessionFromToken(tokenData);
+  if (!session || session.aud !== expectedAud) {
+    return res.status(401).json({ error: 'Session requise pour signer', code: 'APP_AUTH_REQUIRED' });
+  }
+  attachSession(req, session);
   if (!signature || (signature.type !== 'type' && signature.type !== 'draw')) {
     return res.status(400).json({ error: 'Signature invalide' });
   }
@@ -587,6 +605,9 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
     }
 
     const row = existing.rows[0];
+    if (!canAccessConvention(req.appSession, row)) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas signer cette convention' });
+    }
     if (role === 'entreprise' && row.signed_entreprise) {
       return res.status(409).json({ error: 'Convention déjà signée par l\'entreprise' });
     }
@@ -653,7 +674,7 @@ conventionsRouter.patch('/:conventionId/sign', async (req, res) => {
  * PATCH /api/conventions/:conventionId/archive
  * Archivage GED par l'université (doyenne / faculté)
  */
-conventionsRouter.patch('/:conventionId/archive', async (req, res) => {
+conventionsRouter.patch('/:conventionId/archive', requireUniversiteSession, async (req, res) => {
   const convId = parseInt(req.params.conventionId, 10);
   if (!convId || Number.isNaN(convId)) {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
@@ -667,6 +688,9 @@ conventionsRouter.patch('/:conventionId/archive', async (req, res) => {
     }
 
     const row = existing.rows[0];
+    if (!canAccessConvention(req.appSession, row)) {
+      return res.status(403).json({ error: 'Convention hors de votre périmètre' });
+    }
     if (row.status === 'archived') {
       return res.json({
         message: 'Convention déjà archivée',
@@ -698,28 +722,11 @@ conventionsRouter.patch('/:conventionId/archive', async (req, res) => {
   }
 });
 
-conventionsRouter.get('/', async (req, res) => {
-  const studentName = (req.query.studentName || '').trim();
-  const matricule = (req.query.matricule || '').trim();
-  if (!studentName && !matricule) {
-    return res.status(400).json({ error: 'Paramètre studentName ou matricule requis' });
-  }
+conventionsRouter.get('/', requireEtudiantSession, async (req, res) => {
   try {
     const pool = getPool();
-    let resolvedName = studentName;
-    if (matricule) {
-      const byMatricule = await pool.query(
-        `SELECT u.display_name
-         FROM students s
-         JOIN users u ON u.id = s.user_id
-         WHERE s.matricule = $1 OR u.login_id = $1
-         LIMIT 1`,
-        [matricule]
-      );
-      if (byMatricule.rows.length) {
-        resolvedName = byMatricule.rows[0].display_name || resolvedName;
-      }
-    }
+    const identity = await loadEtudiantIdentity(pool, req.appSession.userId);
+    const resolvedName = (identity?.display_name || req.appSession.displayName || '').trim();
     if (!resolvedName) {
       return res.status(400).json({ error: 'Étudiant introuvable' });
     }
@@ -740,7 +747,7 @@ conventionsRouter.get('/', async (req, res) => {
  * GET /api/conventions/:conventionId/verify
  * Vérifie l'intégrité documentaire (SHA-256)
  */
-conventionsRouter.get('/:conventionId/verify', async (req, res) => {
+conventionsRouter.get('/:conventionId/verify', requireAppSessionAny(['etudiant', 'entreprise', 'universite']), async (req, res) => {
   const convId = parseInt(req.params.conventionId, 10);
   if (!convId || Number.isNaN(convId)) {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
@@ -750,6 +757,9 @@ conventionsRouter.get('/:conventionId/verify', async (req, res) => {
     const result = await pool.query('SELECT * FROM conventions WHERE id = $1', [convId]);
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Convention introuvable' });
+    }
+    if (!canAccessConvention(req.appSession, result.rows[0])) {
+      return res.status(403).json({ error: 'Accès refusé à cette convention' });
     }
     const verification = verifyConventionIntegrity(result.rows[0]);
     res.json({
@@ -767,7 +777,7 @@ conventionsRouter.get('/:conventionId/verify', async (req, res) => {
  * GET /api/conventions/:conventionId
  * Détail d'une convention (convention signée depuis la base)
  */
-conventionsRouter.get('/:conventionId', async (req, res) => {
+conventionsRouter.get('/:conventionId', requireAppSessionAny(['etudiant', 'entreprise', 'universite']), async (req, res) => {
   const convId = parseInt(req.params.conventionId, 10);
   if (!convId || Number.isNaN(convId)) {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
@@ -781,6 +791,9 @@ conventionsRouter.get('/:conventionId', async (req, res) => {
     });
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Convention introuvable' });
+    }
+    if (!canAccessConvention(req.appSession, result.rows[0])) {
+      return res.status(403).json({ error: 'Accès refusé à cette convention' });
     }
     res.json({ convention: mapConventionRow(result.rows[0]) });
   } catch (err) {

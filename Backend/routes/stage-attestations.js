@@ -2,6 +2,8 @@ const express = require('express');
 const { getPool } = require('../lib/db');
 const { isStagePeriodEnded } = require('../lib/stage-dates');
 const { parseSignaturesJson } = require('../lib/convention-map');
+const { requireAppSessionAny, requireEtudiantSession } = require('../lib/require-app-auth');
+const { canAccessConvention, loadEtudiantIdentity } = require('../lib/resource-access');
 
 const router = express.Router();
 
@@ -71,7 +73,7 @@ async function loadConvention(client, conventionId) {
   return result.rows[0] || null;
 }
 
-router.get('/:conventionId', async (req, res) => {
+router.get('/:conventionId', requireAppSessionAny(['etudiant', 'entreprise', 'universite']), async (req, res) => {
   const conventionId = parseInt(req.params.conventionId, 10);
   if (!conventionId || Number.isNaN(conventionId)) {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
@@ -82,6 +84,9 @@ router.get('/:conventionId', async (req, res) => {
     const conv = convResult.rows[0];
     if (!conv) {
       return res.status(404).json({ error: 'Convention introuvable' });
+    }
+    if (!canAccessConvention(req.appSession, conv)) {
+      return res.status(403).json({ error: 'Accès refusé à cette attestation' });
     }
 
     const attResult = await pool.query(
@@ -99,11 +104,9 @@ router.get('/:conventionId', async (req, res) => {
   }
 });
 
-router.post('/:conventionId', async (req, res) => {
+router.post('/:conventionId', requireEtudiantSession, async (req, res) => {
   const conventionId = parseInt(req.params.conventionId, 10);
   const {
-    studentName,
-    studentId,
     missions,
     competences,
     commentaire,
@@ -114,13 +117,12 @@ router.post('/:conventionId', async (req, res) => {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
   }
 
-  const nameTrim = (studentName || '').trim();
   const missionsTrim = (missions || '').trim();
   const competencesTrim = (competences || '').trim();
 
-  if (!nameTrim || !missionsTrim || !competencesTrim) {
+  if (!missionsTrim || !competencesTrim) {
     return res.status(400).json({
-      error: 'Nom étudiant, missions réalisées et compétences acquises sont obligatoires',
+      error: 'Missions réalisées et compétences acquises sont obligatoires',
     });
   }
   if (missionsTrim.length < 50) {
@@ -142,10 +144,13 @@ router.post('/:conventionId', async (req, res) => {
       return res.status(404).json({ error: 'Convention introuvable' });
     }
 
-    if ((conv.student_name || '').trim() !== nameTrim) {
+    if (!canAccessConvention(req.appSession, conv)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Cette attestation ne correspond pas à votre convention' });
     }
+
+    const identity = await loadEtudiantIdentity(client, req.appSession.userId);
+    const nameTrim = (identity?.display_name || req.appSession.displayName || conv.student_name || '').trim();
 
     if (!conv.signed_entreprise || !conv.signed_universite) {
       await client.query('ROLLBACK');
@@ -182,7 +187,7 @@ router.post('/:conventionId', async (req, res) => {
        RETURNING *`,
       [
         conventionId,
-        studentId || conv.student_id || null,
+        req.appSession.userId || conv.student_id || null,
         nameTrim,
         conv.entreprise_id,
         conv.entreprise_nom,

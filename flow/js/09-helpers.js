@@ -373,10 +373,14 @@ async function downloadStudentProfileDocument(docId) {
   const defaultName = summary?.fileName || 'document.pdf';
   const defaultMime = summary?.mimeType || 'application/pdf';
   showToast('⏳ Téléchargement…');
-  const q = studentProfileDocQueryParams();
-  const fileUrl = API_BASE + '/api/etudiant/documents/' + encodeURIComponent(docId) + '/file?' + q.toString();
+  const fileUrl = API_BASE + '/api/etudiant/documents/' + encodeURIComponent(docId) + '/file';
+  const fileHeaders = {};
+  if (typeof getAppAuthToken === 'function') {
+    const tok = getAppAuthToken('etudiant');
+    if (tok) fileHeaders.Authorization = 'Bearer ' + tok;
+  }
   try {
-    const res = await fetch(fileUrl);
+    const res = await fetch(fileUrl, { headers: fileHeaders });
     if (!res.ok) {
       let msg = 'Impossible de télécharger';
       try {
@@ -404,7 +408,7 @@ async function downloadStudentProfileDocument(docId) {
     return;
   }
   try {
-    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId) + '?' + q.toString());
+    const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId));
     const doc = data.document;
     if (doc && doc.dataBase64) {
       triggerDownloadBase64File(doc.dataBase64, doc.fileName || defaultName, doc.mimeType || defaultMime);
@@ -420,12 +424,8 @@ async function deleteStudentProfileDocument(docId) {
   if (!u || !docId) return;
   if (!confirm('Supprimer ce document de votre profil ?')) return;
   try {
-    const matricule = typeof normalizeStudentMatricule === 'function'
-      ? normalizeStudentMatricule(u.matricule || u.login_id || '')
-      : String(u.matricule || '').trim();
     const data = await apiJson('/api/etudiant/documents/' + encodeURIComponent(docId), {
       method: 'DELETE',
-      body: JSON.stringify({ matricule, studentName: u.name }),
     });
     state.studentProfileDocs = data.documents || [];
     if (typeof persistStudentProfileDocsLocal === 'function') {
@@ -796,7 +796,7 @@ async function annulerDemandeById(id){
   try {
     const data = await apiJson('/api/demandes/' + id + '/cancel', {
       method: 'PATCH',
-      body: JSON.stringify({ studentName: u.name }),
+      body: JSON.stringify({}),
     });
     mergeDemandeFromApi(id, data.demande);
     persistDemandeState(id);
@@ -819,7 +819,7 @@ async function annulerAutresDemandes(){
     for (const d of pendingOnes) {
       const data = await apiJson('/api/demandes/' + d.id + '/cancel', {
         method: 'PATCH',
-        body: JSON.stringify({ studentName: u.name }),
+        body: JSON.stringify({}),
       });
       mergeDemandeFromApi(d.id, data.demande);
       persistDemandeState(d.id);
@@ -1583,8 +1583,6 @@ async function submitStageReport() {
     const data = await apiJson('/api/rapports/' + convId, {
       method: 'POST',
       body: JSON.stringify({
-        studentName: u.name,
-        studentId: u.id || null,
         title,
         summary,
         content,
@@ -1846,8 +1844,6 @@ async function submitStageAttestation() {
     const data = await apiJson('/api/attestations/' + convId, {
       method: 'POST',
       body: JSON.stringify({
-        studentName: u.name,
-        studentId: u.id || null,
         missions,
         competences,
         commentaire,

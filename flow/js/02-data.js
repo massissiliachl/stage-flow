@@ -9,6 +9,46 @@ const registeredAccounts = { etudiant:{}, entreprise:{} };
 
 const API_BASE = 'https://stage-flow-6rl5.onrender.com';
 const SUPABASE_DASHBOARD_URL = 'https://supabase.com/dashboard/project/oyhuelfsmtcicbnwjkha';
+const APP_AUTH_TOKEN_KEYS = {
+  etudiant: 'sf_etudiant_jwt',
+  entreprise: 'sf_entreprise_jwt',
+  universite: 'sf_univ_jwt',
+};
+
+function getAppAuthToken(role) {
+  const key = APP_AUTH_TOKEN_KEYS[role];
+  if (!key) return '';
+  try { return sessionStorage.getItem(key) || ''; } catch (e) { return ''; }
+}
+function setAppAuthToken(role, token) {
+  const key = APP_AUTH_TOKEN_KEYS[role];
+  if (!key) return;
+  try {
+    if (token) sessionStorage.setItem(key, String(token));
+    else sessionStorage.removeItem(key);
+  } catch (e) {}
+}
+function clearAllAppAuthTokens() {
+  Object.keys(APP_AUTH_TOKEN_KEYS).forEach(function(r) { setAppAuthToken(r, ''); });
+}
+function getUniversiteAuthToken() { return getAppAuthToken('universite'); }
+function setUniversiteAuthToken(token) { setAppAuthToken('universite', token); }
+function clearUniversiteAuthToken() { setAppAuthToken('universite', ''); }
+
+function resolveBearerTokenForApi(path) {
+  const p = String(path || '');
+  if (p.indexOf('/api/auth/') === 0) return '';
+  const role = state.role;
+  if (role && getAppAuthToken(role)) return getAppAuthToken(role);
+  if (p.indexOf('/api/universite/') === 0) return getAppAuthToken('universite');
+  if (p.indexOf('/api/entreprise/') === 0) return getAppAuthToken('entreprise');
+  if (p.indexOf('/api/etudiant/') === 0) return getAppAuthToken('etudiant');
+  if (/\/api\/(demandes|conventions|rapports|attestations)/.test(p)) {
+    return getAppAuthToken('etudiant') || getAppAuthToken('entreprise') || getAppAuthToken('universite');
+  }
+  if (p.indexOf('/api/universities/') === 0) return getAppAuthToken('universite');
+  return '';
+}
 
 function normalizeStudentMatricule(value) {
   return String(value || '')
@@ -23,10 +63,14 @@ async function apiJson(path, options = {}, attempt = 0) {
     ? setTimeout(function() { controller.abort(); }, timeoutMs)
     : null;
 
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const bearer = resolveBearerTokenForApi(path);
+  if (bearer && !headers.Authorization) headers.Authorization = 'Bearer ' + bearer;
+
   let res;
   try {
     res = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      headers,
       ...options,
       signal: controller ? controller.signal : undefined,
     });
@@ -93,6 +137,7 @@ async function syncUniversityStructureToDb(universityName, faculteName, logoUrl)
 
 /** Envoie en base tous les comptes université / facultés du navigateur (une fois au chargement). */
 async function syncAllUniversityAccountsStructureToDb() {
+  if (typeof showDemoAuthAccounts === 'function' && !showDemoAuthAccounts()) return;
   if (typeof universityAccounts === 'undefined' || !universityAccounts.length) return;
   const seenUni = new Set();
   for (let i = 0; i < universityAccounts.length; i++) {
@@ -357,7 +402,7 @@ async function syncStudentDemandesFromDb() {
   const u = state.user;
   if (!u || !u.name) return;
   try {
-    const data = await apiJson('/api/demandes?studentName=' + encodeURIComponent(u.name));
+    const data = await apiJson('/api/demandes');
     const fromDb = data.demandes || [];
     for (let i = demandes.length - 1; i >= 0; i--) {
       if ((demandes[i].studentName || '') === u.name) demandes.splice(i, 1);
@@ -377,9 +422,7 @@ async function syncStudentConventionsFromDb() {
   const accepted = getAcceptedStudentDemande(u);
   const queryName = (accepted && (accepted.studentLabel || accepted.studentName)) || u.name;
   try {
-    let url = '/api/conventions?studentName=' + encodeURIComponent(queryName);
-    if (u.matricule) url += '&matricule=' + encodeURIComponent(u.matricule);
-    const data = await apiJson(url);
+    const data = await apiJson('/api/conventions');
     const fromDb = data.conventions || [];
     for (let i = conventions.length - 1; i >= 0; i--) {
       if (conventions[i].fromDb && conventionBelongsToStudent(conventions[i], u)) conventions.splice(i, 1);
@@ -406,14 +449,8 @@ async function syncEtudiantFromDb() {
 async function syncStudentProfileDocsFromDb() {
   const u = state.user;
   if (!u || state.role !== 'etudiant') return;
-  const matricule = normalizeStudentMatricule(u.matricule || u.login_id || '');
-  const name = (u.name || '').trim();
-  if (!matricule && !name) return;
-  const q = new URLSearchParams();
-  if (matricule) q.set('matricule', matricule);
-  if (name) q.set('studentName', name);
   try {
-    const data = await apiJson('/api/etudiant/documents?' + q.toString());
+    const data = await apiJson('/api/etudiant/documents');
     state.studentProfileDocs = data.documents || [];
     if (typeof persistStudentProfileDocsLocal === 'function') {
       persistStudentProfileDocsLocal(state.studentProfileDocs);
@@ -488,20 +525,9 @@ function ensureUniversityNotificationsFromConventions(fromDbConventions) {
   });
 }
 
-function universityOverviewQuery() {
-  const u = state.user;
-  if (!u || state.role !== 'universite') return '';
-  const q = new URLSearchParams();
-  if (u.type) q.set('type', u.type);
-  if (u.faculte) q.set('faculte', u.faculte);
-  if (u.departement) q.set('departement', u.departement);
-  const s = q.toString();
-  return s ? '?' + s : '';
-}
-
 async function syncUniversiteFromDb() {
   try {
-    const data = await apiJson('/api/universite/overview' + universityOverviewQuery());
+    const data = await apiJson('/api/universite/overview');
     const fromDb = data.conventions || [];
     for (let i = conventions.length - 1; i >= 0; i--) {
       if (conventions[i].fromDb) conventions.splice(i, 1);

@@ -8,8 +8,12 @@ const {
   listStudentUniversitiesMerged,
   isValidStudentFacultyMerged,
 } = require('../lib/student-academic');
+const { signAppToken } = require('../lib/session-jwt');
+const { rateLimit } = require('../lib/rate-limit');
 
 const router = express.Router();
+const loginLimiter = rateLimit({ max: 30, keyPrefix: 'etudiant-login' });
+const registerLimiter = rateLimit({ max: 15, keyPrefix: 'etudiant-register' });
 
 /** Supprime espaces (y compris insécables) — claviers mobile. */
 function normalizeMatriculeInput(value) {
@@ -113,7 +117,7 @@ router.get('/universities', async (req, res) => {
   }
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const {
     name,
     email,
@@ -326,7 +330,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const matricule = normalizeMatriculeInput(req.body?.matricule || req.body?.login_id);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
@@ -408,8 +412,24 @@ router.post('/login', async (req, res) => {
       [row.user_id]
     );
 
+    let token;
+    try {
+      token = signAppToken({
+        aud: 'etudiant',
+        sub: row.user_id,
+        matricule: row.matricule || row.login_id,
+        displayName: row.display_name,
+      });
+    } catch (signErr) {
+      console.error('JWT sign etudiant:', signErr.message);
+      return res.status(503).json({
+        error: 'Configuration serveur incomplète (APP_JWT_SECRET). Contactez l\'administrateur.',
+      });
+    }
+
     res.json({
       message: 'Connexion réussie',
+      token,
       user: toFrontendUser(row),
     });
   } catch (err) {

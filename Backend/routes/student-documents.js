@@ -1,7 +1,9 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
+const { requireEtudiantSession } = require('../lib/require-app-auth');
 
 const router = express.Router();
+router.use(requireEtudiantSession);
 
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -37,34 +39,17 @@ function mapDocSummary(doc) {
   };
 }
 
-async function resolveStudentRow(pool, { matricule, studentName }) {
-  const m = normalizeMatricule(matricule);
-  if (m) {
-    const byMat = await pool.query(
-      `SELECT s.user_id, s.matricule, s.profile_documents, u.display_name AS student_name
-       FROM students s
-       JOIN users u ON u.id = s.user_id
-       WHERE u.login_id = $1
-          OR s.matricule = $1
-          OR regexp_replace(s.matricule, '[[:space:]]+', '', 'g') = $1
-       LIMIT 1`,
-      [m]
-    );
-    if (byMat.rows[0]) return byMat.rows[0];
-  }
-  const nameTrim = String(studentName || '').trim();
-  if (nameTrim) {
-    const byName = await pool.query(
-      `SELECT s.user_id, s.matricule, s.profile_documents, u.display_name AS student_name
-       FROM students s
-       JOIN users u ON u.id = s.user_id
-       WHERE lower(trim(u.display_name)) = lower($1)
-       LIMIT 1`,
-      [nameTrim]
-    );
-    if (byName.rows[0]) return byName.rows[0];
-  }
-  return null;
+async function resolveStudentRowForSession(pool, userId) {
+  if (!userId) return null;
+  const result = await pool.query(
+    `SELECT s.user_id, s.matricule, s.profile_documents, u.display_name AS student_name
+     FROM students s
+     JOIN users u ON u.id = s.user_id
+     WHERE u.id = $1 AND u.role = 'etudiant'
+     LIMIT 1`,
+    [userId]
+  );
+  return result.rows[0] || null;
 }
 
 function parseDocuments(raw) {
@@ -78,18 +63,13 @@ function parseDocuments(raw) {
   }
 }
 
-/** GET /api/etudiant/documents?matricule=&studentName= */
+/** GET /api/etudiant/documents */
 router.get('/', async (req, res) => {
-  const matricule = req.query.matricule;
-  const studentName = req.query.studentName;
-  if (!normalizeMatricule(matricule) && !String(studentName || '').trim()) {
-    return res.status(400).json({ error: 'Paramètre matricule ou studentName requis' });
-  }
   try {
     const pool = getPool();
-    const row = await resolveStudentRow(pool, { matricule, studentName });
+    const row = await resolveStudentRowForSession(pool, req.appSession.userId);
     if (!row) {
-      return res.json({ documents: [], matricule: normalizeMatricule(matricule) || null });
+      return res.json({ documents: [], matricule: null });
     }
     const docs = parseDocuments(row.profile_documents).map(mapDocSummary).filter(Boolean);
     res.json({ documents: docs, matricule: row.matricule, studentName: row.student_name });
@@ -105,10 +85,7 @@ router.get('/:docId/file', async (req, res) => {
   if (!docId) return res.status(400).json({ error: 'Document invalide' });
   try {
     const pool = getPool();
-    const row = await resolveStudentRow(pool, {
-      matricule: req.query.matricule,
-      studentName: req.query.studentName,
-    });
+    const row = await resolveStudentRowForSession(pool, req.appSession.userId);
     if (!row) return res.status(404).json({ error: 'Étudiant introuvable' });
     const doc = parseDocuments(row.profile_documents).find((d) => d.id === docId);
     if (!doc || !doc.dataBase64) {
@@ -142,10 +119,7 @@ router.get('/:docId', async (req, res) => {
   if (!docId) return res.status(400).json({ error: 'Document invalide' });
   try {
     const pool = getPool();
-    const row = await resolveStudentRow(pool, {
-      matricule: req.query.matricule,
-      studentName: req.query.studentName,
-    });
+    const row = await resolveStudentRowForSession(pool, req.appSession.userId);
     if (!row) return res.status(404).json({ error: 'Étudiant introuvable' });
     const doc = parseDocuments(row.profile_documents).find((d) => d.id === docId);
     if (!doc) return res.status(404).json({ error: 'Document introuvable' });
@@ -203,9 +177,9 @@ router.post('/', async (req, res) => {
 
   try {
     const pool = getPool();
-    const row = await resolveStudentRow(pool, { matricule, studentName });
+    const row = await resolveStudentRowForSession(pool, req.appSession.userId);
     if (!row) {
-      return res.status(404).json({ error: 'Étudiant introuvable — reconnectez-vous avec votre matricule' });
+      return res.status(404).json({ error: 'Étudiant introuvable — reconnectez-vous' });
     }
 
     const docs = parseDocuments(row.profile_documents);
@@ -240,12 +214,11 @@ router.post('/', async (req, res) => {
 /** DELETE /api/etudiant/documents/:docId */
 router.delete('/:docId', async (req, res) => {
   const docId = String(req.params.docId || '').trim();
-  const { matricule, studentName } = req.body || {};
   if (!docId) return res.status(400).json({ error: 'Document invalide' });
 
   try {
     const pool = getPool();
-    const row = await resolveStudentRow(pool, { matricule, studentName });
+    const row = await resolveStudentRowForSession(pool, req.appSession.userId);
     if (!row) return res.status(404).json({ error: 'Étudiant introuvable' });
 
     const docs = parseDocuments(row.profile_documents);

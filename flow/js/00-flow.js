@@ -15,6 +15,65 @@ function dismissAccessGuard() {
   hideAccessGuardImmediate();
 }
 
+function hideAccessGuardAnimated() {
+  var guard = document.getElementById('accessGuard');
+  if (!guard) return;
+  guard.style.transition = 'opacity .4s';
+  guard.style.opacity = '0';
+  setTimeout(function() { guard.style.display = 'none'; }, 400);
+}
+
+function showAccessGuardError(message) {
+  var err = document.getElementById('guardError');
+  var input = document.getElementById('guardPassword');
+  if (err) err.textContent = message || '❌ Mot de passe incorrect';
+  if (input) {
+    input.value = '';
+    input.style.borderColor = '#FF4D6A';
+    setTimeout(function() {
+      if (err) err.textContent = '';
+      input.style.borderColor = 'rgba(255,255,255,0.15)';
+    }, 2500);
+  }
+}
+
+async function checkSiteAccess() {
+  var input = document.getElementById('guardPassword');
+  var val = input ? input.value : '';
+  if (!val) {
+    showAccessGuardError('⚠️ Mot de passe requis');
+    return;
+  }
+  try {
+    var base = typeof API_BASE !== 'undefined' ? API_BASE : 'https://stage-flow-6rl5.onrender.com';
+    var res = await fetch(base + '/api/auth/site/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: val }),
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (res.ok && data.ok) {
+      hideAccessGuardAnimated();
+      return;
+    }
+    showAccessGuardError('❌ ' + (data.error || 'Mot de passe incorrect'));
+  } catch (e) {
+    showAccessGuardError('❌ Serveur inaccessible — réessayez');
+  }
+}
+
+async function initSiteAccessGuard() {
+  var guard = document.getElementById('accessGuard');
+  if (!guard || guard.style.display === 'none') return;
+  try {
+    var base = typeof API_BASE !== 'undefined' ? API_BASE : 'https://stage-flow-6rl5.onrender.com';
+    var res = await fetch(base + '/api/auth/site/status', { headers: { Accept: 'application/json' } });
+    var data = await res.json();
+    if (res.ok && data.enabled === false) hideAccessGuardImmediate();
+  } catch (e) {}
+}
+
 /** Liste « comptes démo » université — visible seulement avec ?demo=1 (usage perso). */
 function showDemoAuthAccounts() {
   try { return new URLSearchParams(window.location.search).get('demo') === '1'; } catch (e) { return false; }

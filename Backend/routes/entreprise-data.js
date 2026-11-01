@@ -7,6 +7,19 @@ const { mapAttestationRow } = require('./stage-attestations');
 const { parseEntrepriseLogoUrl } = require('../lib/entreprise-logo');
 
 const router = express.Router();
+const { requireEntrepriseSession } = require('../lib/require-app-auth');
+
+router.use(requireEntrepriseSession);
+router.param('entrepriseId', (req, res, next, value) => {
+  const entId = parseInt(value, 10);
+  if (!entId || Number.isNaN(entId)) {
+    return res.status(400).json({ error: 'Identifiant entreprise invalide' });
+  }
+  if (Number(req.appSession.entrepriseId) !== entId) {
+    return res.status(403).json({ error: 'Accès refusé à cet espace entreprise' });
+  }
+  next();
+});
 
 function mapDemande(row) {
   const date = row.demand_date

@@ -3,12 +3,15 @@ const { getPool } = require('../lib/db');
 const { queryConventions, mapConventionRows } = require('../lib/convention-query');
 
 const router = express.Router();
+const { requireUniversiteSession } = require('../lib/require-universite-auth');
 
-/** Filtre faculté / département selon le compte connecté (query). */
-function scopeFiltersFromQuery(query) {
-  const type = String(query.type || '').trim();
-  const faculte = String(query.faculte || '').trim();
-  const departement = String(query.departement || '').trim();
+router.use(requireUniversiteSession);
+
+/** Filtre faculté / département — uniquement depuis la session JWT (pas le client). */
+function scopeFiltersFromSession(session) {
+  const type = String(session?.type || '').trim();
+  const faculte = String(session?.faculte || '').trim();
+  const departement = String(session?.departement || '').trim();
   const convParts = [];
   const convParams = [];
   const studentParts = [];
@@ -57,7 +60,7 @@ function mapStudentRow(row) {
 router.get('/overview', async (req, res) => {
   try {
     const pool = getPool();
-    const scope = scopeFiltersFromQuery(req.query);
+    const scope = scopeFiltersFromSession(req.univSession);
 
     const convRes = await queryConventions(pool, {
       where: scope.convWhere,

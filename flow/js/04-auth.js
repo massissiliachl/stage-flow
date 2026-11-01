@@ -132,7 +132,8 @@ async function submitStudentLogin(){
       method: 'POST',
       body: JSON.stringify({ matricule, password }),
     });
-    const account = { ...data.user, password, _role: 'etudiant' };
+    if (typeof setAppAuthToken === 'function' && data.token) setAppAuthToken('etudiant', data.token);
+    const account = { ...data.user, _role: 'etudiant' };
     registeredAccounts.etudiant[matricule] = account;
     state.role = 'etudiant';
     state.user = account;
@@ -240,6 +241,7 @@ async function submitCompanyLogin(){
       method: 'POST',
       body: JSON.stringify({ identifiant, password }),
     });
+    if (typeof setAppAuthToken === 'function' && data.token) setAppAuthToken('entreprise', data.token);
     await enterEntrepriseApp(data.user);
     showToast('✅ Connexion réussie — bienvenue !');
   } catch (err) {
@@ -269,6 +271,7 @@ function enterApp(role) {
 }
 
 function logout() {
+  if (typeof clearAllAppAuthTokens === 'function') clearAllAppAuthTokens();
   document.getElementById('univAuthScreen').style.display = 'none';
   showLanding();
   document.getElementById('app').style.display = 'none';
@@ -353,19 +356,32 @@ function fillLogin(email, pass){
 
 async function submitUnivLogin(){
   const rawEmail = (document.getElementById('loginEmail').value||'').trim();
-  const email = rawEmail.toLowerCase();
   const pass = document.getElementById('loginPassword').value||'';
   if (/^\d{8,}$/.test(rawEmail.replace(/\s/g, ''))) {
     showToast('⚠️ Le matricule étudiant se connecte sur la page Étudiant (etudiant.html), pas ici.');
     return;
   }
-  const account = universityAccounts.find(a=>a.email.toLowerCase()===email && a.password===pass);
-  if(!account){ showToast('❌ Email ou mot de passe incorrect'); return; }
-  state.user = account;
-  document.getElementById('univAuthScreen').style.display = 'none';
-  showToast('⏳ Chargement de votre espace…');
-  if (typeof syncUniversiteFromDb === 'function') await syncUniversiteFromDb();
-  enterApp('universite');
+  if (!rawEmail || !pass) {
+    showToast('⚠️ Email institutionnel et mot de passe requis');
+    return;
+  }
+  showToast('⏳ Connexion sécurisée…');
+  if (typeof warmApiForLogin === 'function') await warmApiForLogin();
+  try {
+    const data = await apiJson('/api/auth/universite/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: rawEmail, password: pass }),
+    });
+    if (typeof setAppAuthToken === 'function') setAppAuthToken('universite', data.token);
+    state.user = data.user;
+    document.getElementById('univAuthScreen').style.display = 'none';
+    showToast('⏳ Chargement de votre espace…');
+    if (typeof syncUniversiteFromDb === 'function') await syncUniversiteFromDb();
+    enterApp('universite');
+  } catch (err) {
+    const msg = err.details?.error || err.message || 'Connexion impossible';
+    showToast('❌ ' + msg);
+  }
 }
 
 function registerFormHTML(){

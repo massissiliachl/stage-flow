@@ -2,21 +2,19 @@ require('dotenv').config({ quiet: true });
 
 const express = require('express');
 const cors = require('cors');
+const { securityHeaders, buildCorsOptions } = require('./lib/http-security');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Dev : accepte localhost, file:// (Origin: null), tous ports locaux
-app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 204,
-}));
+app.use(securityHeaders);
+app.use(cors(buildCorsOptions()));
 app.use(express.json({ limit: '1mb' }));
 app.use('/api/etudiant/documents', express.json({ limit: '6mb' }), require('./routes/student-documents').studentDocumentsRouter);
 
 app.use('/api/auth/entreprise', require('./routes/auth-entreprise'));
 app.use('/api/auth/etudiant', require('./routes/auth-etudiant'));
+app.use('/api/auth/universite', require('./routes/auth-universite'));
+app.use('/api/auth/site', require('./routes/auth-site'));
 app.use('/api/auth', require('./routes/auth-email'));
 app.use('/api/entreprise', require('./routes/entreprise-data'));
 app.use('/api/universite', require('./routes/universite-data'));

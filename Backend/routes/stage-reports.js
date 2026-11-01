@@ -1,6 +1,8 @@
 const express = require('express');
 const { getPool } = require('../lib/db');
 const { isStagePeriodEnded } = require('../lib/stage-dates');
+const { requireAppSessionAny, requireEtudiantSession } = require('../lib/require-app-auth');
+const { canAccessConvention, loadEtudiantIdentity } = require('../lib/resource-access');
 
 const router = express.Router();
 
@@ -26,13 +28,20 @@ async function loadConvention(client, conventionId) {
   return result.rows[0] || null;
 }
 
-router.get('/:conventionId', async (req, res) => {
+router.get('/:conventionId', requireAppSessionAny(['etudiant', 'entreprise', 'universite']), async (req, res) => {
   const conventionId = parseInt(req.params.conventionId, 10);
   if (!conventionId || Number.isNaN(conventionId)) {
     return res.status(400).json({ error: 'Identifiant convention invalide' });
   }
   try {
     const pool = getPool();
+    const conv = await loadConvention(pool, conventionId);
+    if (!conv) {
+      return res.status(404).json({ error: 'Convention introuvable' });
+    }
+    if (!canAccessConvention(req.appSession, conv)) {
+      return res.status(403).json({ error: 'Accès refusé à ce rapport' });
+    }
     const result = await pool.query(
       'SELECT * FROM stage_reports WHERE convention_id = $1 LIMIT 1',
       [conventionId]
@@ -44,11 +53,9 @@ router.get('/:conventionId', async (req, res) => {
   }
 });
 
-router.post('/:conventionId', async (req, res) => {
+router.post('/:conventionId', requireEtudiantSession, async (req, res) => {
   const conventionId = parseInt(req.params.conventionId, 10);
   const {
-    studentName,
-    studentId,
     title,
     summary,
     content,
@@ -61,10 +68,9 @@ router.post('/:conventionId', async (req, res) => {
 
   const titleTrim = (title || '').trim();
   const contentTrim = (content || '').trim();
-  const nameTrim = (studentName || '').trim();
 
-  if (!nameTrim || !titleTrim || !contentTrim) {
-    return res.status(400).json({ error: 'Nom étudiant, titre et contenu du rapport sont obligatoires' });
+  if (!titleTrim || !contentTrim) {
+    return res.status(400).json({ error: 'Titre et contenu du rapport sont obligatoires' });
   }
   if (contentTrim.length < 100) {
     return res.status(400).json({ error: 'Le rapport doit contenir au moins 100 caractères' });
@@ -82,10 +88,13 @@ router.post('/:conventionId', async (req, res) => {
       return res.status(404).json({ error: 'Convention introuvable' });
     }
 
-    if ((conv.student_name || '').trim() !== nameTrim) {
+    if (!canAccessConvention(req.appSession, conv)) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Ce rapport ne correspond pas à votre convention' });
     }
+
+    const identity = await loadEtudiantIdentity(client, req.appSession.userId);
+    const nameTrim = (identity?.display_name || req.appSession.displayName || conv.student_name || '').trim();
 
     if (!conv.signed_entreprise || !conv.signed_universite) {
       await client.query('ROLLBACK');
@@ -118,7 +127,7 @@ router.post('/:conventionId', async (req, res) => {
        RETURNING *`,
       [
         conventionId,
-        studentId || conv.student_id || null,
+        req.appSession.userId || conv.student_id || null,
         nameTrim,
         conv.entreprise_id,
         conv.entreprise_nom,
